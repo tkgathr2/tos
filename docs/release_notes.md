@@ -1,5 +1,15 @@
 # TOS v0.3 Release Notes
 
+## S-5 Changes
+
+- Started S-5 experimental phase
+- Added s5_settings configuration section
+- Added is_experimental flag to step_log
+- Added previous_phase=S-4 to phase_summary.json
+- cc_run.ps1 displays "(experimental)" for S-5 phase
+- test mode shows warning when is_experimental=true
+- Updated runbook.md with S-5 section
+
 ## S-4 Changes
 
 - Added run/test/cleanrun/checkpoint/rollback modes to cc_run.ps1

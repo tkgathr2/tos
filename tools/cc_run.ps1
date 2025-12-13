@@ -352,6 +352,17 @@ if ($Mode -eq "test") {
     }
   }
 
+  # IH: S-5 experimental warning (does not affect exit code)
+  if ($stepFiles.Count -gt 0) {
+    $latestStepForExp = Get-Content $stepFiles[0].FullName -Encoding UTF8 | ConvertFrom-Json
+    if ($latestStepForExp.is_experimental -eq $true) {
+      $stateForExp = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
+      if ($stateForExp.current_phase -eq "S-5") {
+        Write-Host "WARNING: S-5 experimental mode - results may be unstable"
+      }
+    }
+  }
+
   if ($testPassed) {
     Write-Host "test passed"
   } else {
@@ -381,7 +392,12 @@ $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
 $exitWithError = $false
 if (Test-Path $phaseState) {
   $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
-  Write-Host "phase_state phase=$($state.current_phase) step=$($state.current_step) done=$($state.last_done)"
+  # IE: S-5 experimental display
+  $phaseDisplay = $state.current_phase
+  if ($state.current_phase -eq "S-5") {
+    $phaseDisplay = "$($state.current_phase) (experimental)"
+  }
+  Write-Host "phase_state phase=$phaseDisplay step=$($state.current_step) done=$($state.last_done)"
   # DJ: Priority order: fatal_error > deny > stopped
   # CH: fatal_error phase: show fatal_error reason and exit 1
   if ($state.current_phase -eq "fatal_error") {

@@ -296,7 +296,42 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 
 ## S-4 completion checklist
 
-- [ ] run/test/cleanrun modes pass
-- [ ] deny/fatal_error/stopped states are distinguishable
-- [ ] checkpoint/rollback modes pass
-- [ ] SummaryFile outputs JSON and TXT
+- [x] run/test/cleanrun modes pass
+- [x] deny/fatal_error/stopped states are distinguishable
+- [x] checkpoint/rollback modes pass
+- [x] SummaryFile outputs JSON and TXT
+
+## S-5 experimental phase
+
+S-5 is an experimental phase for testing new features.
+
+### experimental mode
+
+- config_v0_3.json s5_settings.enabled=true enables experimental mode
+- is_experimental flag is saved in step_log
+- phase_summary.json includes current_phase=S-5 and previous_phase=S-4
+- cc_run.ps1 displays "(experimental)" when phase is S-5
+- test mode shows warning when is_experimental=true
+
+### caution
+
+- experimental features may be unstable
+- results may differ from stable phases
+- use checkpoint before testing experimental features
+- rollback if unexpected behavior occurs
+
+### s5_settings configuration
+
+```json
+"s5_settings": {
+  "enabled": true,
+  "description": "S-5 experimental features"
+}
+```
+
+### S-5 completion checklist
+
+- [ ] experimental mode displays correctly
+- [ ] is_experimental flag saved in step_log
+- [ ] phase_summary includes previous_phase=S-4
+- [ ] test mode warning displayed

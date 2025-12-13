@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-TOS v0.3 Orchestrator - S-2 API接続版
+TOS v0.3 Orchestrator - S-5 experimental
 ChatGPT API / Claude API の実接続
 """
 
@@ -298,6 +298,7 @@ def build_step_log_data(
     execution: dict = None,
     message: str = None,
     stopped: bool = False,
+    is_experimental: bool = False,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -318,6 +319,7 @@ def build_step_log_data(
         "error": error,
         "message": message,
         "stopped": stopped,
+        "is_experimental": is_experimental,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -837,9 +839,16 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         except Exception as e:
             print(f"ステップログ読み込みエラー: {step_file} - {e}")
 
+    # S-5 experimental 情報を取得
+    s5_settings = config.get("s5_settings", {})
+    is_experimental = s5_settings.get("enabled", False)
+
     # サマリを構築
     summary = {
         "generated_at": datetime.now().isoformat(),
+        "current_phase": "S-5",
+        "previous_phase": "S-4",
+        "is_experimental": is_experimental,
         "total_steps": len(steps),
         "success_count": success_count,
         "fail_count": fail_count,
@@ -933,6 +942,12 @@ def main():
 
     print("APIキー確認完了")
 
+    # S-5 experimental フラグ
+    s5_settings = config.get("s5_settings", {})
+    is_experimental = s5_settings.get("enabled", False)
+    if is_experimental:
+        print("S-5 experimental mode enabled")
+
     # 7. メインループ
     max_steps = config.get("max_steps", 8)
     context = {"history": []}
@@ -970,6 +985,7 @@ def main():
                 done=True,
                 done_reason=phase_result["done_reason"],
                 message="目標達成",
+                is_experimental=is_experimental,
                 next_phase_name=phase_result["next_phase_name"],
                 next_phase_done_condition=phase_result["next_phase_done_condition"],
                 next_instruction_id=phase_result["next_instruction_id"],
@@ -1002,6 +1018,7 @@ def main():
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="draft生成失敗",
                 stopped=True,
+                is_experimental=is_experimental,
                 prompts_used={"draft": draft_prompt_info},
                 draft_raw=sanitize_for_log(draft_raw)
             )
@@ -1028,6 +1045,7 @@ def main():
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="review生成失敗",
                 stopped=True,
+                is_experimental=is_experimental,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
                 draft=draft,
                 review_raw=sanitize_for_log(review_raw)
@@ -1055,6 +1073,7 @@ def main():
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="final生成失敗",
                 stopped=True,
+                is_experimental=is_experimental,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
                 draft=draft,
                 review=review,
@@ -1123,7 +1142,8 @@ def main():
                     "denied_reason": deny_reason_str
                 },
                 message=f"deny: {deny_reason_str}",
-                stopped=stop_on_deny
+                stopped=stop_on_deny,
+                is_experimental=is_experimental
             )
             write_step_log(config, step_num, step_data)
 
@@ -1187,7 +1207,8 @@ def main():
                 review_raw=sanitize_for_log(review_raw),
                 final=final,
                 final_raw=sanitize_for_log(final_raw),
-                execution=exec_result
+                execution=exec_result,
+                is_experimental=is_experimental
             )
             write_step_log(config, step_num, step_data)
 
@@ -1213,7 +1234,8 @@ def main():
             step_num=max_steps + 1,
             config=config,
             done=False,
-            done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
+            done_reason=f"max_steps ({max_steps}) に到達したが目標未達成",
+            is_experimental=is_experimental
         )
         write_step_log(config, max_steps + 1, step_data)
         # フェーズ状態を保存（max_steps到達）

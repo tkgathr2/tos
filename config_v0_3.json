@@ -1,6 +1,10 @@
 {
   "config_version": "v0.3",
-  "sprint": "S-4",
+  "sprint": "S-5",
+  "s5_settings": {
+    "enabled": true,
+    "description": "S-5 experimental features"
+  },
   "openai_model": "gpt-4o-mini",
   "anthropic_model": "claude-3-haiku-20240307",
   "max_steps": 8,
