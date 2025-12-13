@@ -14,6 +14,7 @@ workspace/results/*
 workspace/artifacts/*
 logs/steps/*
 logs/phase_summary.json
+logs/last_run_summary.json
 
 # Keep directory structure
 !workspace/generated/.gitkeep

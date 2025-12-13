@@ -1,13 +1,14 @@
 param(
   [string]$Root = "C:\Users\takag\00_dev\tos",
   [string]$Mode,
-  [switch]$Clean
+  [switch]$Clean,
+  [string]$SummaryFile
 )
 
 $ErrorActionPreference = "Stop"
 
 function Show-Usage {
-  Write-Host "usage cc_run.ps1 -Mode run|test|cleanrun -Clean"
+  Write-Host "usage cc_run.ps1 -Mode run|test|cleanrun -Clean -SummaryFile path"
 }
 
 # Check -Mode is specified
@@ -58,9 +59,10 @@ if (-not (Test-Path $initPath)) {
 }
 
 powershell -NoProfile -ExecutionPolicy Bypass -File $initPath
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "init failed with exit code $LASTEXITCODE"
-  exit $LASTEXITCODE
+$initExitCode = $LASTEXITCODE
+if ($initExitCode -ne 0) {
+  Write-Host "init failed with exit code $initExitCode"
+  exit $initExitCode
 }
 
 # 2) run orchestrator
@@ -84,61 +86,102 @@ if (-not (Test-Path $py)) {
 
 Write-Host "Python $py"
 & $py $orch
-$exitCode = $LASTEXITCODE
+$orchExitCode = $LASTEXITCODE
+
+# Helper function to save summary
+function Save-Summary {
+  param([string]$FilePath)
+
+  $summary = @{
+    phase = $null
+    step = $null
+    done = $null
+    latest_step = $null
+    step_count = 0
+    phase_summary_exists = $false
+  }
+
+  $phaseStatePath = Join-Path $Root "workspace\artifacts\phase_state.json"
+  if (Test-Path $phaseStatePath) {
+    $state = Get-Content $phaseStatePath -Encoding UTF8 | ConvertFrom-Json
+    $summary.phase = $state.current_phase
+    $summary.step = $state.current_step
+    $summary.done = $state.last_done
+  }
+
+  $stepsDir = Join-Path $Root "logs\steps"
+  $stepFiles = Get-ChildItem -Path $stepsDir -Filter "step_*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+  if ($stepFiles.Count -gt 0) {
+    $summary.latest_step = $stepFiles[0].Name
+    $summary.step_count = $stepFiles.Count
+  }
+
+  $phaseSummaryPath = Join-Path $Root "logs\phase_summary.json"
+  if (Test-Path $phaseSummaryPath) {
+    $summary.phase_summary_exists = $true
+  }
+
+  $fullPath = Join-Path $Root $FilePath
+  $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+  Write-Host "summary saved $fullPath"
+}
 
 # 3) test mode: verify exit code and log files
 if ($Mode -eq "test") {
-  Write-Host ""
-  Write-Host "test mode verification"
-
   $testPassed = $true
 
-  if ($exitCode -ne 0) {
-    Write-Host "FAIL orchestrator exit code = $exitCode"
+  # Check init exit code
+  if ($initExitCode -ne 0) {
+    Write-Host "FAIL init exit code = $initExitCode"
     $testPassed = $false
-  } else {
-    Write-Host "OK orchestrator exit code = 0"
   }
 
+  # Check orchestrator exit code
+  if ($orchExitCode -ne 0) {
+    Write-Host "FAIL orchestrator exit code = $orchExitCode"
+    $testPassed = $false
+  }
+
+  # Check tos_python_path.txt
+  $pyPathFile = Join-Path $Root "tos_python_path.txt"
+  if (-not (Test-Path $pyPathFile)) {
+    Write-Host "FAIL tos_python_path.txt not found"
+    $testPassed = $false
+  }
+
+  # Check phase_state.json
   $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
-  if (Test-Path $phaseState) {
-    Write-Host "OK phase_state.json exists"
-  } else {
+  if (-not (Test-Path $phaseState)) {
     Write-Host "FAIL phase_state.json not found"
     $testPassed = $false
   }
 
+  # Check step files
   $stepsDir = Join-Path $Root "logs\steps"
   $stepFiles = Get-ChildItem -Path $stepsDir -Filter "step_*.json" -ErrorAction SilentlyContinue
-  if ($stepFiles.Count -gt 0) {
-    Write-Host "OK step files exist count=$($stepFiles.Count)"
-  } else {
+  if ($stepFiles.Count -eq 0) {
     Write-Host "FAIL no step files found"
     $testPassed = $false
   }
 
-  $phaseSummary = Join-Path $Root "logs\phase_summary.json"
-  if (Test-Path $phaseSummary) {
-    Write-Host "OK phase_summary.json exists"
-  } else {
-    Write-Host "FAIL phase_summary.json not found"
-    $testPassed = $false
+  # Save summary if specified
+  if ($SummaryFile) {
+    Save-Summary -FilePath $SummaryFile
   }
 
-  Write-Host ""
   if ($testPassed) {
-    Write-Host "Test PASSED"
+    Write-Host "test passed"
     exit 0
   } else {
-    Write-Host "Test FAILED"
+    Write-Host "test failed"
     exit 1
   }
 }
 
 # Normal exit for run/cleanrun modes
-if ($exitCode -ne 0) {
-  Write-Host "orchestrator failed with exit code $exitCode"
-  exit $exitCode
+if ($orchExitCode -ne 0) {
+  Write-Host "orchestrator failed with exit code $orchExitCode"
+  exit $orchExitCode
 }
 
 # 4) summary display
@@ -164,6 +207,11 @@ if (Test-Path $phaseSummary) {
   Write-Host "phase_summary exists"
 } else {
   Write-Host "phase_summary none"
+}
+
+# Save summary if specified
+if ($SummaryFile) {
+  Save-Summary -FilePath $SummaryFile
 }
 
 Write-Host "TOS cc_run end"
