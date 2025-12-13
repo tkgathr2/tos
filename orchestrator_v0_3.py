@@ -220,7 +220,10 @@ def build_step_log_data(
     message: str = None,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
-    next_instruction_id: str = None
+    next_instruction_id: str = None,
+    next_instruction_summary: str = None,
+    next_instruction_inputs: list = None,
+    next_instruction_expected_outputs: list = None
 ) -> dict:
     """ステップログデータを構築（スキーマ固定）
 
@@ -251,7 +254,10 @@ def build_step_log_data(
         "execution": execution,
         "next_phase_name": next_phase_name,
         "next_phase_done_condition": next_phase_done_condition,
-        "next_instruction_id": next_instruction_id
+        "next_instruction_id": next_instruction_id,
+        "next_instruction_summary": next_instruction_summary,
+        "next_instruction_inputs": next_instruction_inputs,
+        "next_instruction_expected_outputs": next_instruction_expected_outputs
     }
 
 
@@ -494,7 +500,10 @@ def evaluate_phase_done(config: dict) -> dict:
             "done_reason": str,
             "next_phase_name": str or None,
             "next_phase_done_condition": str or None,
-            "next_instruction_id": str or None
+            "next_instruction_id": str or None,
+            "next_instruction_summary": str or None,
+            "next_instruction_inputs": list or None,
+            "next_instruction_expected_outputs": list or None
         }
     """
     # 現在のフェーズ完了条件をチェック
@@ -506,7 +515,16 @@ def evaluate_phase_done(config: dict) -> dict:
             "done_reason": "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む",
             "next_phase_name": "S-5",
             "next_phase_done_condition": "次のフェーズの完了条件（未定義）",
-            "next_instruction_id": "指示書010"
+            "next_instruction_id": "指示書010",
+            "next_instruction_summary": "S-5フェーズ: 次の目標に向けた準備と実行",
+            "next_instruction_inputs": [
+                "workspace/results/result_v2.txt (前フェーズの出力)",
+                "config_v0_3.json (設定ファイル)"
+            ],
+            "next_instruction_expected_outputs": [
+                "次フェーズの成果物（未定義）",
+                "logs/steps/step_XXX.json (実行ログ)"
+            ]
         }
     else:
         return {
@@ -514,7 +532,10 @@ def evaluate_phase_done(config: dict) -> dict:
             "done_reason": "フェーズ完了条件を満たしていない",
             "next_phase_name": None,
             "next_phase_done_condition": None,
-            "next_instruction_id": None
+            "next_instruction_id": None,
+            "next_instruction_summary": None,
+            "next_instruction_inputs": None,
+            "next_instruction_expected_outputs": None
         }
 
 
@@ -614,7 +635,10 @@ def main():
                 message="目標達成",
                 next_phase_name=phase_result["next_phase_name"],
                 next_phase_done_condition=phase_result["next_phase_done_condition"],
-                next_instruction_id=phase_result["next_instruction_id"]
+                next_instruction_id=phase_result["next_instruction_id"],
+                next_instruction_summary=phase_result["next_instruction_summary"],
+                next_instruction_inputs=phase_result["next_instruction_inputs"],
+                next_instruction_expected_outputs=phase_result["next_instruction_expected_outputs"]
             )
             write_step_log(config, step_num, step_data)
             break
