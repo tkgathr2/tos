@@ -63,21 +63,25 @@ if ($Mode -eq "checkpoint") {
   # EP: checkpoint output
   Write-Host "checkpoint $hash"
 
-  # EO/FG: Save summary with checkpoint_hash (JSON and TXT)
+  # EO/FG/GQ: Save summary with checkpoint_hash (JSON and TXT)
   if ($SummaryFile) {
     if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
       $fullPath = $SummaryFile
     } else {
       $fullPath = Join-Path $Root $SummaryFile
     }
+    # GQ: Add timestamp and root
+    $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
     $summary = @{
       mode = "checkpoint"
       checkpoint_hash = $hash
+      timestamp = $timestamp
+      root = $Root
     }
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
     # FG: Save TXT
     $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
-    $txtContent = "mode=checkpoint checkpoint_hash=$hash"
+    $txtContent = "mode=checkpoint checkpoint_hash=$hash timestamp=$timestamp root=$Root"
     $txtContent | Set-Content -Path $txtPath -Encoding UTF8
     Write-Host "summary saved $fullPath"
   }
@@ -127,29 +131,37 @@ if ($Mode -eq "rollback") {
   # EQ: rollback output
   Write-Host "rollback $TargetCommit"
 
-  # EO/FG: Save summary with rollback_target (JSON and TXT)
+  # EO/FG/GQ: Save summary with rollback_target (JSON and TXT)
   if ($SummaryFile) {
     if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
       $fullPath = $SummaryFile
     } else {
       $fullPath = Join-Path $Root $SummaryFile
     }
+    # GQ: Add timestamp and root
+    $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
     $summary = @{
       mode = "rollback"
       rollback_target = $TargetCommit
+      timestamp = $timestamp
+      root = $Root
     }
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
     # FG: Save TXT
     $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
-    $txtContent = "mode=rollback rollback_target=$TargetCommit"
+    $txtContent = "mode=rollback rollback_target=$TargetCommit timestamp=$timestamp root=$Root"
     $txtContent | Set-Content -Path $txtPath -Encoding UTF8
     Write-Host "summary saved $fullPath"
   }
 
-  # EM: Auto run test after rollback
+  # EM/GO/GP: Auto run test after rollback with -Clean and optional SummaryFile
   Write-Host "auto test after rollback"
   $ccRunScript = Join-Path $Root "tools\cc_run.ps1"
-  powershell -NoProfile -ExecutionPolicy Bypass -File $ccRunScript -Root $Root -Mode test
+  $testArgs = @("-Root", $Root, "-Mode", "test", "-Clean")
+  if ($SummaryFile) {
+    $testArgs += @("-SummaryFile", $SummaryFile)
+  }
+  powershell -NoProfile -ExecutionPolicy Bypass -File $ccRunScript @testArgs
   $testExitCode = $LASTEXITCODE
 
   if ($testExitCode -ne 0) {

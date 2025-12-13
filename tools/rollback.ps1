@@ -38,5 +38,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "git clean -fd"
 git clean -fd
 
+# GS: Show current HEAD after rollback
+$currentHead = git rev-parse HEAD
+Write-Host "head $currentHead"
+
 Write-Host "rollback done"
 exit 0

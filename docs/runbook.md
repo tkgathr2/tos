@@ -232,3 +232,37 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 # or rollback to specific commit
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback -TargetCommit abc1234
 ```
+
+### rollback auto test
+
+rollback mode runs test automatically after rollback completes:
+- uses -Clean flag to ensure clean state
+- uses same -SummaryFile if specified
+- exits with code 1 if test fails
+
+### rollback verification procedure
+
+1. create checkpoint
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S4_before_verify
+```
+
+2. intentionally cause failure (example: add deny pattern)
+```json
+"deny_if_contains": [
+  "Remove-Item",
+  "Set-Content"
+]
+```
+
+3. run test (should fail)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
+```
+
+4. rollback to checkpoint
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
+```
+
+5. test runs automatically after rollback and should pass

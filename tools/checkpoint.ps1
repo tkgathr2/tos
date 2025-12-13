@@ -1,10 +1,8 @@
-# EB/EI/ES: checkpoint.ps1
+# EB/EI/ES/GR: checkpoint.ps1
 param(
   [string]$Root = "C:\Users\takag\00_dev\tos",
   [string]$Name
 )
-
-$ErrorActionPreference = "Stop"
 
 function Show-Usage {
   Write-Host "usage checkpoint.ps1 -Name <text>"
@@ -16,32 +14,22 @@ if (-not $Name) {
   exit 1
 }
 
-Write-Host "checkpoint start"
-Write-Host "Root $Root"
-Write-Host "Name $Name"
-
 Set-Location $Root
 
-# ES: git status
-Write-Host "git status"
-git status
-
 # ES: git add . (even if dirty)
-Write-Host "git add ."
-git add .
+git add . 2>$null
 
 # EB: git commit
 $commitMsg = "CHECKPOINT $Name"
-Write-Host "git commit -m `"$commitMsg`""
-git commit -m $commitMsg --allow-empty
-if ($LASTEXITCODE -ne 0) {
+$output = git commit -m $commitMsg --allow-empty 2>&1
+$commitExitCode = $LASTEXITCODE
+
+if ($commitExitCode -ne 0) {
   Write-Host "git commit failed"
   exit 1
 }
 
-# EB: Output commit hash
+# GR: Output only commit hash (no extra lines)
 $hash = git rev-parse HEAD
-Write-Host $hash
-
-Write-Host "checkpoint done"
+Write-Output $hash
 exit 0
