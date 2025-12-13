@@ -92,37 +92,57 @@ $orchExitCode = $LASTEXITCODE
 function Save-Summary {
   param([string]$FilePath)
 
-  $summary = @{
-    phase = $null
-    step = $null
-    done = $null
-    latest_step = $null
-    step_count = 0
-    phase_summary_exists = $false
+  # Resolve path: absolute or relative to Root
+  if ([System.IO.Path]::IsPathRooted($FilePath)) {
+    $fullPath = $FilePath
+  } else {
+    $fullPath = Join-Path $Root $FilePath
   }
+
+  $phase = $null
+  $step = $null
+  $done = $null
+  $latest_step = $null
+  $step_count = 0
+  $phase_summary_exists = $false
 
   $phaseStatePath = Join-Path $Root "workspace\artifacts\phase_state.json"
   if (Test-Path $phaseStatePath) {
     $state = Get-Content $phaseStatePath -Encoding UTF8 | ConvertFrom-Json
-    $summary.phase = $state.current_phase
-    $summary.step = $state.current_step
-    $summary.done = $state.last_done
+    $phase = $state.current_phase
+    $step = $state.current_step
+    $done = $state.last_done
   }
 
   $stepsDir = Join-Path $Root "logs\steps"
   $stepFiles = Get-ChildItem -Path $stepsDir -Filter "step_*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
   if ($stepFiles.Count -gt 0) {
-    $summary.latest_step = $stepFiles[0].Name
-    $summary.step_count = $stepFiles.Count
+    $latest_step = $stepFiles[0].Name
+    $step_count = $stepFiles.Count
   }
 
   $phaseSummaryPath = Join-Path $Root "logs\phase_summary.json"
   if (Test-Path $phaseSummaryPath) {
-    $summary.phase_summary_exists = $true
+    $phase_summary_exists = $true
   }
 
-  $fullPath = Join-Path $Root $FilePath
+  # Save JSON
+  $summary = @{
+    phase = $phase
+    step = $step
+    done = $done
+    latest_step = $latest_step
+    step_count = $step_count
+    phase_summary_exists = $phase_summary_exists
+  }
   $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+
+  # Save TXT (same base name with .txt extension)
+  $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
+  $phaseSummaryText = if ($phase_summary_exists) { "exists" } else { "none" }
+  $txtContent = "phase=$phase step=$step done=$done latest_step=$latest_step step_count=$step_count phase_summary=$phaseSummaryText"
+  $txtContent | Set-Content -Path $txtPath -Encoding UTF8
+
   Write-Host "summary saved $fullPath"
 }
 
@@ -164,16 +184,20 @@ if ($Mode -eq "test") {
     $testPassed = $false
   }
 
-  # Save summary if specified
+  if ($testPassed) {
+    Write-Host "test passed"
+  } else {
+    Write-Host "test failed"
+  }
+
+  # Save summary if specified (after test result)
   if ($SummaryFile) {
     Save-Summary -FilePath $SummaryFile
   }
 
   if ($testPassed) {
-    Write-Host "test passed"
     exit 0
   } else {
-    Write-Host "test failed"
     exit 1
   }
 }
