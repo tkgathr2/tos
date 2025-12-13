@@ -50,6 +50,21 @@
 - phase_summary includes job_result_path when job_result.json is output
 - test mode passes when job_loop_complete + job_result.json exists
 
+### S-5 指示書048 Summary/JobLoop/Payload完成度向上
+
+- SummaryFile JSON/TXT に job_loop オブジェクト追加 (enabled, max_jobs, job_name, current_job_index, completed)
+- SummaryFile JSON/TXT に job_payload_present, job_payload_size 追加
+- SummaryFile JSON/TXT に job_result_written 追加
+- SummaryFile TXT に end_reason 追加
+- phase_summary に job_payload_present, job_result_written, job_result_path_posix 追加
+- step_log に job_payload_present, job_payload_size, job_result_path 追加
+- run/cleanrun/test サマリー表示に job_loop info 追加
+- run/cleanrun で job_result_path_posix 表示
+- test mode 警告追加: job_loop enabled but not completed
+- test mode 警告追加: job_payload_present=false
+- test mode 警告追加: job_index > max_jobs
+- test mode 警告追加: job_result_written=false
+
 ## S-4 Changes
 
 - Added run/test/cleanrun/checkpoint/rollback modes to cc_run.ps1

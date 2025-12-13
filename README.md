@@ -31,6 +31,25 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -Ch
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 ```
 
+## S-5 Experimental Mode
+
+S-5 is an experimental phase. Results may be unstable.
+
+### job_loop
+
+job_loop allows running multiple jobs sequentially (max_jobs limit). Each run executes one job cycle.
+
+```json
+"s5_settings": {
+  "enabled": true,
+  "job_loop": {
+    "enabled": true,
+    "max_jobs": 3,
+    "job_name": "sample"
+  }
+}
+```
+
 ## Documentation
 
 - [Runbook](docs/runbook.md) - Detailed usage guide

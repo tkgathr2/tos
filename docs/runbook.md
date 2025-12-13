@@ -30,6 +30,12 @@ orchestrator execution with verification
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
 ```
 
+test mode warnings (do not affect exit code):
+- WARNING: job_loop enabled but not completed - when job_loop.enabled=true and completed=false
+- WARNING: job_payload_present=false - when job_loop enabled but no job_input.json
+- WARNING: job_index (X) > max_jobs (Y) - when job_index exceeds max_jobs
+- WARNING: job_result_written=false - when job_loop completed but no job_result.json
+
 ### cleanrun mode
 
 cleanup then orchestrator execution
@@ -88,12 +94,19 @@ JSON content
 - step_count
 - phase_summary_exists
 - job_result_exists (true/false)
+- job_result_written (true/false)
 - job_result_path (only if job_result_exists=true)
+- job_payload_present (true/false)
+- job_payload_size (bytes)
+- job_loop (object with enabled, max_jobs, job_name, current_job_index, completed)
+- end_reason
 
 TXT content
 - 1 line format
 - phase=done step=1 done=True latest_step=step_001.json step_count=1 phase_summary=exists job_result=none
 - when job_result.json exists: job_result=exists job_result_path=<path>
+- job_loop=enabled|disabled job_name=sample job_index=1 max_jobs=3
+- job_payload=present|none job_result_written=true|false job_payload_size=123
 
 ### Clean option
 

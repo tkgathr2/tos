@@ -256,6 +256,15 @@ function Save-Summary {
   $latest_step = $null
   $step_count = 0
   $phase_summary_exists = $false
+  $end_reason = $null
+
+  # 01-03: job_loop object initialization
+  $job_loop = $null
+  $job_loop_enabled = $false
+  $job_name = $null
+  $job_index = $null
+  $max_jobs = $null
+  $job_loop_completed = $false
 
   $phaseStatePath = Join-Path $Root "workspace\artifacts\phase_state.json"
   if (Test-Path $phaseStatePath) {
@@ -263,6 +272,10 @@ function Save-Summary {
     $phase = $state.current_phase
     $step = $state.current_step
     $done = $state.last_done
+    # Get job_index from phase_state
+    if ($state.job_index) {
+      $job_index = $state.job_index
+    }
   }
 
   $stepsDir = Join-Path $Root "logs\steps"
@@ -275,6 +288,25 @@ function Save-Summary {
   $phaseSummaryPath = Join-Path $Root "logs\phase_summary.json"
   if (Test-Path $phaseSummaryPath) {
     $phase_summary_exists = $true
+    # Read phase_summary for job_loop and end_reason
+    $phaseSummary = Get-Content $phaseSummaryPath -Encoding UTF8 | ConvertFrom-Json
+    # 10: end_reason
+    if ($phaseSummary.end_reason) {
+      $end_reason = $phaseSummary.end_reason
+    }
+    # 01-03: job_loop object
+    if ($phaseSummary.job_loop) {
+      $job_loop = $phaseSummary.job_loop
+      $job_loop_enabled = $phaseSummary.job_loop.enabled
+      $job_name = $phaseSummary.job_loop.job_name
+      $max_jobs = $phaseSummary.job_loop.max_jobs
+      if ($phaseSummary.job_loop.current_job_index) {
+        $job_index = $phaseSummary.job_loop.current_job_index
+      }
+      $job_loop_completed = $phaseSummary.job_loop.completed
+    } elseif ($phaseSummary.job_loop_enabled) {
+      $job_loop_enabled = $phaseSummary.job_loop_enabled
+    }
   }
 
   # LA-LD: job_result.json check
@@ -286,6 +318,22 @@ function Save-Summary {
     $job_result_path = $jobResultPath
   }
 
+  # 08-09: job_payload check
+  $job_payload_present = $false
+  $job_payload_size = 0
+  $jobPayloadPath = Join-Path $Root "workspace\artifacts\job_input.json"
+  if (Test-Path $jobPayloadPath) {
+    $job_payload_present = $true
+    # 40: job_payload_size
+    $job_payload_size = (Get-Item $jobPayloadPath).Length
+  }
+
+  # 38-39: job_result_written check
+  $job_result_written = $false
+  if ($job_result_exists) {
+    $job_result_written = $true
+  }
+
   # Save JSON
   $summary = @{
     phase = $phase
@@ -295,10 +343,28 @@ function Save-Summary {
     step_count = $step_count
     phase_summary_exists = $phase_summary_exists
     job_result_exists = $job_result_exists
+    job_payload_present = $job_payload_present
+    # 39: job_result_written
+    job_result_written = $job_result_written
+    # 40: job_payload_size
+    job_payload_size = $job_payload_size
+    end_reason = $end_reason
   }
   # LC: Add job_result_path if exists
   if ($job_result_path) {
     $summary.job_result_path = $job_result_path
+  }
+  # 01-03: Add job_loop object to JSON
+  if ($job_loop) {
+    $summary.job_loop = $job_loop
+  } else {
+    $summary.job_loop = @{
+      enabled = $job_loop_enabled
+      max_jobs = $max_jobs
+      job_name = $job_name
+      current_job_index = $job_index
+      completed = $job_loop_completed
+    }
   }
   $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
 
@@ -307,7 +373,27 @@ function Save-Summary {
   $phaseSummaryText = if ($phase_summary_exists) { "exists" } else { "none" }
   # LB: Add job_result to TXT
   $jobResultText = if ($job_result_exists) { "exists" } else { "none" }
-  $txtContent = "phase=$phase step=$step done=$done latest_step=$latest_step step_count=$step_count phase_summary=$phaseSummaryText job_result=$jobResultText"
+  # 04-07: job_loop info for TXT
+  $jobLoopText = if ($job_loop_enabled) { "enabled" } else { "disabled" }
+  # 09: job_payload for TXT
+  $jobPayloadText = if ($job_payload_present) { "present" } else { "none" }
+
+  $txtContent = "phase=$phase step=$step done=$done latest_step=$latest_step step_count=$step_count phase_summary=$phaseSummaryText"
+  $txtContent += " job_result=$jobResultText"
+  # 04-07: Add job_loop details to TXT
+  $txtContent += " job_loop=$jobLoopText"
+  if ($job_name) { $txtContent += " job_name=$job_name" }
+  if ($job_index) { $txtContent += " job_index=$job_index" }
+  if ($max_jobs) { $txtContent += " max_jobs=$max_jobs" }
+  # 09: Add job_payload to TXT
+  $txtContent += " job_payload=$jobPayloadText"
+  # 38: Add job_result_written to TXT
+  $jobResultWrittenText = if ($job_result_written) { "true" } else { "false" }
+  $txtContent += " job_result_written=$jobResultWrittenText"
+  # 40: Add job_payload_size to TXT
+  $txtContent += " job_payload_size=$job_payload_size"
+  # 10: Add end_reason to TXT
+  if ($end_reason) { $txtContent += " end_reason=$end_reason" }
   # LD: Add job_result_path if exists
   if ($job_result_path) {
     $txtContent += " job_result_path=$job_result_path"
@@ -406,6 +492,40 @@ if ($Mode -eq "test") {
     Write-Host "experimental mode active"
   }
 
+  # 32: test mode job_loop info display
+  $phaseSummaryPath = Join-Path $Root "logs\phase_summary.json"
+  if (Test-Path $phaseSummaryPath) {
+    $phaseSummaryData = Get-Content $phaseSummaryPath -Encoding UTF8 | ConvertFrom-Json
+    if ($phaseSummaryData.job_loop -and $phaseSummaryData.job_loop.enabled) {
+      $jl = $phaseSummaryData.job_loop
+      Write-Host "job_loop enabled=$($jl.enabled) job_name=$($jl.job_name) job_index=$($jl.current_job_index) max_jobs=$($jl.max_jobs) completed=$($jl.completed)"
+
+      # 33: Warning if job_loop_enabled=true but not completed
+      if ($jl.enabled -eq $true -and $jl.completed -ne $true) {
+        Write-Host "WARNING: job_loop enabled but not completed"
+      }
+
+      # 35: Warning if job_index > max_jobs
+      if ($jl.current_job_index -and $jl.max_jobs -and $jl.current_job_index -gt $jl.max_jobs) {
+        Write-Host "WARNING: job_index ($($jl.current_job_index)) > max_jobs ($($jl.max_jobs))"
+      }
+    }
+
+    # 34: Warning if job_payload_present=false (when job_loop enabled)
+    if ($phaseSummaryData.job_loop -and $phaseSummaryData.job_loop.enabled) {
+      if ($phaseSummaryData.job_payload_present -eq $false) {
+        Write-Host "WARNING: job_payload_present=false"
+      }
+    }
+
+    # 36: Warning if job_result_written=false (when job_loop complete)
+    if ($phaseSummaryData.job_loop -and $phaseSummaryData.job_loop.completed) {
+      if ($phaseSummaryData.job_result_written -eq $false) {
+        Write-Host "WARNING: job_result_written=false"
+      }
+    }
+  }
+
   if ($testPassed) {
     Write-Host "test passed"
   } else {
@@ -462,8 +582,21 @@ if (Test-Path $phaseState) {
     $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
     if (Test-Path $jobResultPath) {
       Write-Host "job_result.json exists"
+      # 37: Display job_result_path_posix
+      $jobResultPosix = $jobResultPath -replace "\\", "/"
+      Write-Host "job_result_path_posix $jobResultPosix"
     } else {
       Write-Host "WARNING: job_result.json not found"
+    }
+  }
+
+  # 31: run/cleanrun job_loop info display
+  $phaseSummaryForLoop = Join-Path $Root "logs\phase_summary.json"
+  if (Test-Path $phaseSummaryForLoop) {
+    $psData = Get-Content $phaseSummaryForLoop -Encoding UTF8 | ConvertFrom-Json
+    if ($psData.job_loop -and $psData.job_loop.enabled) {
+      $jl = $psData.job_loop
+      Write-Host "job_loop enabled=$($jl.enabled) job_name=$($jl.job_name) job_index=$($jl.current_job_index) max_jobs=$($jl.max_jobs) completed=$($jl.completed)"
     }
   }
 } else {

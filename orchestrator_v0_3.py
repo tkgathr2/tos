@@ -321,6 +321,7 @@ def build_step_log_data(
     job_index: int = None,
     job_payload: dict = None,
     job_result_written: bool = False,
+    job_result_path: str = None,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -332,10 +333,13 @@ def build_step_log_data(
 
     全てのキーを必ず含め、欠損キーを防ぐ
     """
-    # KD: job_payload を sanitize (最大2000文字)
+    # 21-23: job_payload を sanitize (最大2000文字) + present/size を計算
     sanitized_job_payload = None
+    job_payload_present = job_payload is not None
+    job_payload_size = 0
     if job_payload is not None:
         payload_str = json.dumps(job_payload, ensure_ascii=False)
+        job_payload_size = len(payload_str)
         if len(payload_str) > 2000:
             sanitized_job_payload = payload_str[:2000] + "...(truncated)"
         else:
@@ -356,7 +360,10 @@ def build_step_log_data(
         "job_name": job_name,
         "job_index": job_index,
         "job_payload": sanitized_job_payload,
+        "job_payload_present": job_payload_present,
+        "job_payload_size": job_payload_size,
         "job_result_written": job_result_written,
+        "job_result_path": job_result_path,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -812,7 +819,7 @@ def write_job_result(config: dict, job_name: str, max_jobs: int, jobs_executed: 
     return result_file
 
 
-def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None, job_result_path: str = None) -> Path:
+def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None, job_result_path: str = None, job_payload_present: bool = False, job_result_written: bool = False) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
 
     Args:
@@ -822,6 +829,8 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         end_reason: 終了理由
         job_loop_info: job_loop情報 (JH)
         job_result_path: job_result.jsonのパス (LH)
+        job_payload_present: job_payloadが存在するか (11)
+        job_result_written: job_resultが出力されたか (12)
 
     Returns:
         Path: 出力ファイルのパス
@@ -930,6 +939,26 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
     job_loop_settings = s5_settings.get("job_loop", {})
     job_loop_enabled = job_loop_settings.get("enabled", False)
 
+    # 14: job_result_path_posix を生成
+    job_result_path_posix = None
+    if job_result_path:
+        # Windows path を POSIX に変換
+        job_result_path_posix = job_result_path.replace("\\", "/")
+
+    # 15: execution_summary 常時出力（空でも必ず dict）
+    if execution_summary is None:
+        execution_summary = {}
+
+    # 16-20: job_loop が None の場合はデフォルト構造を作成
+    if job_loop_info is None:
+        job_loop_info = {
+            "enabled": job_loop_enabled,
+            "max_jobs": job_loop_settings.get("max_jobs"),
+            "job_name": job_loop_settings.get("job_name"),
+            "current_job_index": None,
+            "completed": False
+        }
+
     # サマリを構築
     summary = {
         "generated_at": datetime.now().isoformat(),
@@ -939,6 +968,8 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "experimental": is_experimental,
         "job_loop_enabled": job_loop_enabled,
         "job_loop": job_loop_info,
+        "job_payload_present": job_payload_present,
+        "job_result_written": job_result_written,
         "total_steps": len(steps),
         "success_count": success_count,
         "fail_count": fail_count,
@@ -956,7 +987,8 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "stopped_steps": stopped_steps,
         "skipped_steps": skipped_steps or [],
         "steps": steps,
-        "job_result_path": job_result_path
+        "job_result_path": job_result_path,
+        "job_result_path_posix": job_result_path_posix
     }
 
     # ファイル出力
@@ -1096,7 +1128,17 @@ def main():
                 "current_job_index": job_index,
                 "completed": True
             }
-            # LG: job_loop_complete のstep_logを出力 (job_result_written=true)
+            # KH-KI: job_result.json を出力
+            job_result_file = write_job_result(
+                config=config,
+                job_name=job_loop_job_name,
+                max_jobs=job_loop_max_jobs,
+                jobs_executed=job_loop_max_jobs,
+                end_reason=f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
+                last_phase="job_loop_complete",
+                last_step=start_step
+            )
+            # 25: job_loop_complete のstep_logを出力 (job_result_path含む)
             step_data = build_step_log_data(
                 phase="job_loop_complete",
                 step_num=start_step,
@@ -1110,21 +1152,19 @@ def main():
                 job_name=job_loop_job_name,
                 job_index=job_index,
                 job_payload=job_payload,
-                job_result_written=True
+                job_result_written=True,
+                job_result_path=str(job_result_file)
             )
             write_step_log(config, start_step, step_data)
-            # KH-KI: job_result.json を出力
-            job_result_file = write_job_result(
-                config=config,
-                job_name=job_loop_job_name,
-                max_jobs=job_loop_max_jobs,
-                jobs_executed=job_loop_max_jobs,
-                end_reason=f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
-                last_phase="job_loop_complete",
-                last_step=start_step
-            )
             # LH: phase_summaryにjob_result_pathを保存
-            write_phase_summary(config, [], {}, f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達", job_loop_complete_info, str(job_result_file))
+            write_phase_summary(
+                config, [], {},
+                f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
+                job_loop_complete_info,
+                str(job_result_file),
+                job_payload_present=(job_payload is not None),
+                job_result_written=True
+            )
             print(f"TOS v0.3 Orchestrator 終了 (job_loop_complete)")
             sys.exit(0)
 
@@ -1495,7 +1535,12 @@ def main():
         }
 
     # フェーズサマリを出力
-    write_phase_summary(config, skipped_steps, total_execution_summary, end_reason, job_loop_info)
+    write_phase_summary(
+        config, skipped_steps, total_execution_summary, end_reason, job_loop_info,
+        job_result_path=None,
+        job_payload_present=(job_payload is not None),
+        job_result_written=False
+    )
 
     print("")
     print(f"TOS v0.3 Orchestrator 終了 ({end_reason})")
