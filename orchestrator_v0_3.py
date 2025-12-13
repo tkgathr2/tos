@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-TOS v0.3 Orchestrator - S-1 骨格実装
-ダミーAPI（固定JSON）で動作確認用
+TOS v0.3 Orchestrator - S-2 API接続版
+ChatGPT API / Claude API の実接続
 """
 
 import json
@@ -10,6 +10,9 @@ import os
 import sys
 import subprocess
 import re
+import time
+import requests
+import anthropic
 from datetime import datetime
 from pathlib import Path
 
@@ -87,11 +90,113 @@ def parse_json_strict(text: str) -> dict:
     if match:
         text = match.group(1)
 
+    # { ... } のブロックを抽出（JSONオブジェクトのみ対応）
+    if not text.strip().startswith('{'):
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            text = match.group(0)
+
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
         print(f"[ERROR] JSONパース失敗: {e}")
         return None
+
+
+def get_api_keys() -> tuple:
+    """環境変数からAPIキーを取得"""
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    return openai_key, anthropic_key
+
+
+def call_openai_api(config: dict, prompt: str, api_key: str, retry_count: int = 0) -> str:
+    """OpenAI ChatGPT APIを呼び出す"""
+    model = config.get("openai_model", "gpt-4o-mini")
+    max_retries = config.get("api_retry", 2)
+    timeout_sec = config.get("timeout_sec", 120)
+
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 2000
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout_sec)
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        return content
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] OpenAI API呼び出し失敗: {e}")
+        if retry_count < max_retries:
+            print(f"[INFO] リトライ {retry_count + 1}/{max_retries}")
+            time.sleep(2 ** retry_count)
+            return call_openai_api(config, prompt, api_key, retry_count + 1)
+        return None
+
+
+def call_anthropic_api(config: dict, prompt: str, api_key: str, retry_count: int = 0) -> str:
+    """Anthropic Claude APIを呼び出す"""
+    model = config.get("anthropic_model", "claude-3-5-sonnet-20241022")
+    max_retries = config.get("api_retry", 2)
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model=model,
+            max_tokens=2000,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        content = message.content[0].text
+        return content
+    except Exception as e:
+        print(f"[ERROR] Anthropic API呼び出し失敗: {e}")
+        if retry_count < max_retries:
+            print(f"[INFO] リトライ {retry_count + 1}/{max_retries}")
+            time.sleep(2 ** retry_count)
+            return call_anthropic_api(config, prompt, api_key, retry_count + 1)
+        return None
+
+
+def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: str) -> tuple:
+    """APIを呼び出し、JSONパースに失敗したらリトライする"""
+    max_json_retries = config.get("json_retry", 2)
+
+    for attempt in range(max_json_retries + 1):
+        if api_type == "openai":
+            raw_response = call_openai_api(config, prompt, api_key)
+        else:
+            raw_response = call_anthropic_api(config, prompt, api_key)
+
+        if raw_response is None:
+            print("[ERROR] API呼び出しが失敗しました")
+            return None, None
+
+        parsed = parse_json_strict(raw_response)
+        if parsed is not None:
+            return raw_response, parsed
+
+        if attempt < max_json_retries:
+            print(f"[INFO] JSONパース失敗。再プロンプトでリトライ {attempt + 1}/{max_json_retries}")
+            prompt = f"""前回の応答がJSON形式ではありませんでした。
+必ず以下の形式で、JSONのみを返してください。説明文は不要です。
+
+{prompt}"""
+
+    print("[ERROR] JSONパースリトライ上限に達しました")
+    return raw_response, None
 
 
 def write_step_log(config: dict, step_num: int, data: dict) -> Path:
@@ -109,56 +214,94 @@ def write_step_log(config: dict, step_num: int, data: dict) -> Path:
     return log_file
 
 
-def dummy_make_draft(step_num: int, context: dict) -> dict:
-    """ダミー: ドラフト生成（固定JSON返却）"""
-    print(f"[DUMMY] make_draft called (step={step_num})")
+def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> tuple:
+    """ChatGPT APIでドラフト生成"""
+    print(f"[API] make_draft called (step={step_num})")
 
-    # step_001 では result_v2.txt を作成するコマンドを返す
-    if step_num == 1:
-        return {
-            "thought": "初回なので result_v2.txt を作成して done 判定に到達させる",
-            "commands": [
-                {
-                    "type": "powershell",
-                    "code": """
-$content = @"
-=== 集計結果 ===
-合計: 12345
-平均: 123.45
-件数: 100
-================
-"@
-Set-Content -Path "workspace/results/result_v2.txt" -Value $content -Encoding UTF8
-"""
-                }
-            ]
-        }
+    prompt = f"""あなたはタスク実行AIです。以下の目標を達成するためのコマンドを生成してください。
 
-    return {
-        "thought": f"ステップ {step_num} の処理",
-        "commands": []
-    }
+目標: workspace/results/result_v2.txt に集計結果を出力する
+条件:
+- result_v2.txt には「合計:」「平均:」「件数:」の3つのキーワードを含めること
+- PowerShellコマンドで実行可能な形式で出力すること
+
+ステップ: {step_num}
+これまでの履歴: {json.dumps(context.get("history", []), ensure_ascii=False)}
+
+以下のJSON形式のみで応答してください。説明文は不要です。
+{{
+  "thought": "この行動の理由",
+  "commands": [
+    {{
+      "type": "powershell",
+      "code": "実行するPowerShellコード"
+    }}
+  ]
+}}"""
+
+    raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    return raw, parsed
 
 
-def dummy_review_plus(step_num: int, draft: dict, context: dict) -> dict:
-    """ダミー: レビュー＋改善（固定JSON返却）"""
-    print(f"[DUMMY] review_plus called (step={step_num})")
+def review_plus(config: dict, step_num: int, draft: dict, context: dict, anthropic_key: str) -> tuple:
+    """Claude APIでレビューと改善"""
+    print(f"[API] review_plus called (step={step_num})")
 
-    return {
-        "review": "ダミーレビュー: 問題なし",
-        "improved_commands": draft.get("commands", []),
-        "approval": True
-    }
+    prompt = f"""あなたはコードレビュアーです。以下のドラフトをレビューし、改善してください。
+
+ドラフト:
+{json.dumps(draft, ensure_ascii=False, indent=2)}
+
+ステップ: {step_num}
+
+レビュー観点:
+1. コマンドが安全か（危険なコマンドがないか）
+2. 目標を達成できるか
+3. より良い方法があれば改善
+
+以下のJSON形式のみで応答してください。説明文は不要です。
+{{
+  "review": "レビューコメント",
+  "improved_commands": [
+    {{
+      "type": "powershell",
+      "code": "改善後のコード"
+    }}
+  ],
+  "approval": true
+}}"""
+
+    raw, parsed = call_api_with_json_retry(config, prompt, anthropic_key, "anthropic")
+    return raw, parsed
 
 
-def dummy_make_final(step_num: int, draft: dict, review: dict) -> dict:
-    """ダミー: 最終決定（固定JSON返却）"""
-    print(f"[DUMMY] make_final called (step={step_num})")
+def make_final(config: dict, step_num: int, draft: dict, review: dict, openai_key: str) -> tuple:
+    """ChatGPT APIで最終決定"""
+    print(f"[API] make_final called (step={step_num})")
 
-    return {
-        "final_commands": review.get("improved_commands", []),
-        "summary": f"ステップ {step_num} 完了"
-    }
+    prompt = f"""あなたは最終判断AIです。ドラフトとレビューを踏まえて、実行する最終コマンドを決定してください。
+
+ドラフト:
+{json.dumps(draft, ensure_ascii=False, indent=2)}
+
+レビュー:
+{json.dumps(review, ensure_ascii=False, indent=2)}
+
+ステップ: {step_num}
+
+以下のJSON形式のみで応答してください。説明文は不要です。
+{{
+  "final_commands": [
+    {{
+      "type": "powershell",
+      "code": "最終的に実行するコード"
+    }}
+  ],
+  "summary": "このステップで行ったことの要約"
+}}"""
+
+    raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    return raw, parsed
 
 
 def run_commands(config: dict, commands: list, python_path: str) -> dict:
@@ -233,8 +376,19 @@ def evaluate_done_minimal(config: dict) -> bool:
         return False
 
     try:
-        with open(result_file, "r", encoding="utf-8") as f:
-            content = f.read()
+        # PowerShellのOut-FileはUTF-16で出力することがあるため、複数のエンコードを試す
+        content = None
+        for encoding in ["utf-8", "utf-16", "utf-16-le", "cp932"]:
+            try:
+                with open(result_file, "r", encoding=encoding) as f:
+                    content = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+
+        if content is None:
+            print("[ERROR] done判定: ファイルのエンコードを判別できませんでした")
+            return False
 
         required = ["合計:", "平均:", "件数:"]
         missing = [r for r in required if r not in content]
@@ -251,9 +405,19 @@ def evaluate_done_minimal(config: dict) -> bool:
         return False
 
 
+def sanitize_for_log(text: str, max_length: int = 2000) -> str:
+    """ログ出力用にテキストをサニタイズ（APIキー等の除去、長さ制限）"""
+    if text is None:
+        return None
+    # 長すぎる場合は切り詰め
+    if len(text) > max_length:
+        text = text[:max_length] + "...(truncated)"
+    return text
+
+
 def main():
     print("=" * 60)
-    print("TOS v0.3 Orchestrator - S-1 骨格版")
+    print("TOS v0.3 Orchestrator - S-2 API接続版")
     print("=" * 60)
 
     # 1. 設定読み込み
@@ -271,7 +435,6 @@ def main():
         print("[STOP] tos_python_path.txt が見つかりません")
         print("=" * 60)
         print("")
-        print("【次の一手】")
         print("以下のファイルを作成してください:")
         print(f"  {TOS_PYTHON_PATH_FILE}")
         print("")
@@ -291,7 +454,6 @@ def main():
         print(f"[STOP] Python実行ファイルが無効です: {python_path}")
         print("=" * 60)
         print("")
-        print("【次の一手】")
         print(f"tos_python_path.txt の内容を確認してください:")
         print(f"  {TOS_PYTHON_PATH_FILE}")
         print("")
@@ -299,7 +461,26 @@ def main():
         print("=" * 60)
         sys.exit(1)
 
-    # 5. メインループ
+    # 5. APIキー確認
+    openai_key, anthropic_key = get_api_keys()
+
+    if not openai_key:
+        print("")
+        print("=" * 60)
+        print("[STOP] OPENAI_API_KEY 環境変数が設定されていません")
+        print("=" * 60)
+        sys.exit(1)
+
+    if not anthropic_key:
+        print("")
+        print("=" * 60)
+        print("[STOP] ANTHROPIC_API_KEY 環境変数が設定されていません")
+        print("=" * 60)
+        sys.exit(1)
+
+    print("[INFO] APIキー確認完了")
+
+    # 6. メインループ
     max_steps = config.get("max_steps", 8)
     context = {"history": []}
 
@@ -308,32 +489,81 @@ def main():
         print(f"--- Step {step_num}/{max_steps} ---")
 
         # done判定（ループ先頭）
-        if evaluate_done_minimal(config):
+        done_result = evaluate_done_minimal(config)
+        if done_result:
+            done_reason = "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む"
             print(f"[INFO] done=True に到達。ループ終了。")
             write_step_log(config, step_num, {
                 "phase": "done",
                 "done": True,
+                "done_reason": done_reason,
                 "message": "目標達成"
             })
             break
 
-        # ダミーAPI呼び出し
-        draft = dummy_make_draft(step_num, context)
-        review = dummy_review_plus(step_num, draft, context)
-        final = dummy_make_final(step_num, draft, review)
+        # API呼び出し: draft (ChatGPT)
+        draft_raw, draft = make_draft(config, step_num, context, openai_key)
+        if draft is None:
+            print("[ERROR] draft生成に失敗しました。処理を中断します。")
+            write_step_log(config, step_num, {
+                "phase": "error",
+                "error": "draft生成失敗",
+                "draft_raw": sanitize_for_log(draft_raw),
+                "done": False,
+                "done_reason": "API呼び出しまたはJSONパース失敗"
+            })
+            sys.exit(1)
+
+        # API呼び出し: review (Claude)
+        review_raw, review = review_plus(config, step_num, draft, context, anthropic_key)
+        if review is None:
+            print("[ERROR] review生成に失敗しました。処理を中断します。")
+            write_step_log(config, step_num, {
+                "phase": "error",
+                "error": "review生成失敗",
+                "draft": draft,
+                "review_raw": sanitize_for_log(review_raw),
+                "done": False,
+                "done_reason": "API呼び出しまたはJSONパース失敗"
+            })
+            sys.exit(1)
+
+        # API呼び出し: final (ChatGPT)
+        final_raw, final = make_final(config, step_num, draft, review, openai_key)
+        if final is None:
+            print("[ERROR] final生成に失敗しました。処理を中断します。")
+            write_step_log(config, step_num, {
+                "phase": "error",
+                "error": "final生成失敗",
+                "draft": draft,
+                "review": review,
+                "final_raw": sanitize_for_log(final_raw),
+                "done": False,
+                "done_reason": "API呼び出しまたはJSONパース失敗"
+            })
+            sys.exit(1)
 
         # コマンド実行
         commands = final.get("final_commands", [])
         exec_result = run_commands(config, commands, python_path)
 
-        # ステップログ出力
+        # ステップログ出力（詳細版）
         step_data = {
             "phase": "execute",
+            "models_used": {
+                "draft": config.get("openai_model"),
+                "review": config.get("anthropic_model"),
+                "final": config.get("openai_model")
+            },
             "draft": draft,
+            "draft_raw": sanitize_for_log(draft_raw),
             "review": review,
+            "review_raw": sanitize_for_log(review_raw),
             "final": final,
+            "final_raw": sanitize_for_log(final_raw),
             "execution": exec_result,
-            "done": False
+            "done": False,
+            "done_reason": "ステップ実行完了、次のループでdone判定"
         }
         write_step_log(config, step_num, step_data)
 
@@ -345,6 +575,11 @@ def main():
 
     else:
         print(f"[WARN] max_steps ({max_steps}) に到達。done=False のまま終了。")
+        write_step_log(config, max_steps + 1, {
+            "phase": "max_steps_reached",
+            "done": False,
+            "done_reason": f"max_steps ({max_steps}) に到達したが目標未達成"
+        })
 
     print("")
     print("=" * 60)
