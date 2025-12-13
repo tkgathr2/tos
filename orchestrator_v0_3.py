@@ -199,13 +199,66 @@ def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: 
     return raw_response, None
 
 
+def build_step_log_data(
+    phase: str,
+    step_num: int,
+    config: dict,
+    done: bool = False,
+    done_reason: str = "",
+    error: str = None,
+    models_used: dict = None,
+    prompts_used: dict = None,
+    final_commands: list = None,
+    allowlist_summary: list = None,
+    draft: dict = None,
+    draft_raw: str = None,
+    review: dict = None,
+    review_raw: str = None,
+    final: dict = None,
+    final_raw: str = None,
+    execution: dict = None,
+    message: str = None
+) -> dict:
+    """ステップログデータを構築（スキーマ固定）
+
+    全てのキーを必ず含め、欠損キーを防ぐ
+    """
+    return {
+        "phase": phase,
+        "step_num": step_num,
+        "timestamp": datetime.now().isoformat(),
+        "done": done,
+        "done_reason": done_reason,
+        "error": error,
+        "message": message,
+        "models_used": models_used or {
+            "draft": config.get("openai_model"),
+            "review": config.get("anthropic_model"),
+            "final": config.get("openai_model")
+        },
+        "prompts_used": prompts_used,
+        "final_commands": final_commands,
+        "allowlist_summary": allowlist_summary,
+        "draft": draft,
+        "draft_raw": draft_raw,
+        "review": review,
+        "review_raw": review_raw,
+        "final": final,
+        "final_raw": final_raw,
+        "execution": execution
+    }
+
+
 def write_step_log(config: dict, step_num: int, data: dict) -> Path:
     """ステップログを書き込む"""
     logs_dir = BASE_DIR / config["logs_dir"] / "steps"
     log_file = logs_dir / f"step_{step_num:03d}.json"
 
-    data["timestamp"] = datetime.now().isoformat()
-    data["step_num"] = step_num
+    # timestampとstep_numは build_step_log_data で設定済みだが、念のため
+    if "timestamp" not in data:
+        data["timestamp"] = datetime.now().isoformat()
+    if "step_num" not in data:
+        data["step_num"] = step_num
 
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -513,57 +566,69 @@ def main():
         if done_result:
             done_reason = "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む"
             print(f"[INFO] done=True に到達。ループ終了。")
-            write_step_log(config, step_num, {
-                "phase": "done",
-                "done": True,
-                "done_reason": done_reason,
-                "message": "目標達成"
-            })
+            step_data = build_step_log_data(
+                phase="done",
+                step_num=step_num,
+                config=config,
+                done=True,
+                done_reason=done_reason,
+                message="目標達成"
+            )
+            write_step_log(config, step_num, step_data)
             break
 
         # API呼び出し: draft (ChatGPT)
         draft_raw, draft, draft_prompt_info = make_draft(config, step_num, context, openai_key)
         if draft is None:
             print("[ERROR] draft生成に失敗しました。処理を中断します。")
-            write_step_log(config, step_num, {
-                "phase": "error",
-                "error": "draft生成失敗",
-                "draft_prompt_info": draft_prompt_info,
-                "draft_raw": sanitize_for_log(draft_raw),
-                "done": False,
-                "done_reason": "API呼び出しまたはJSONパース失敗"
-            })
+            step_data = build_step_log_data(
+                phase="error",
+                step_num=step_num,
+                config=config,
+                done=False,
+                done_reason="API呼び出しまたはJSONパース失敗",
+                error="draft生成失敗",
+                prompts_used={"draft": draft_prompt_info},
+                draft_raw=sanitize_for_log(draft_raw)
+            )
+            write_step_log(config, step_num, step_data)
             sys.exit(1)
 
         # API呼び出し: review (Claude)
         review_raw, review, review_prompt_info = review_plus(config, step_num, draft, context, anthropic_key)
         if review is None:
             print("[ERROR] review生成に失敗しました。処理を中断します。")
-            write_step_log(config, step_num, {
-                "phase": "error",
-                "error": "review生成失敗",
-                "draft": draft,
-                "review_prompt_info": review_prompt_info,
-                "review_raw": sanitize_for_log(review_raw),
-                "done": False,
-                "done_reason": "API呼び出しまたはJSONパース失敗"
-            })
+            step_data = build_step_log_data(
+                phase="error",
+                step_num=step_num,
+                config=config,
+                done=False,
+                done_reason="API呼び出しまたはJSONパース失敗",
+                error="review生成失敗",
+                prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
+                draft=draft,
+                review_raw=sanitize_for_log(review_raw)
+            )
+            write_step_log(config, step_num, step_data)
             sys.exit(1)
 
         # API呼び出し: final (ChatGPT)
         final_raw, final, final_prompt_info = make_final(config, step_num, draft, review, openai_key)
         if final is None:
             print("[ERROR] final生成に失敗しました。処理を中断します。")
-            write_step_log(config, step_num, {
-                "phase": "error",
-                "error": "final生成失敗",
-                "draft": draft,
-                "review": review,
-                "final_prompt_info": final_prompt_info,
-                "final_raw": sanitize_for_log(final_raw),
-                "done": False,
-                "done_reason": "API呼び出しまたはJSONパース失敗"
-            })
+            step_data = build_step_log_data(
+                phase="error",
+                step_num=step_num,
+                config=config,
+                done=False,
+                done_reason="API呼び出しまたはJSONパース失敗",
+                error="final生成失敗",
+                prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
+                draft=draft,
+                review=review,
+                final_raw=sanitize_for_log(final_raw)
+            )
+            write_step_log(config, step_num, step_data)
             sys.exit(1)
 
         # コマンド実行
@@ -584,30 +649,27 @@ def main():
             allowlist_summary.append(summary)
 
         # ステップログ出力（詳細版）
-        step_data = {
-            "phase": "execute",
-            "models_used": {
-                "draft": config.get("openai_model"),
-                "review": config.get("anthropic_model"),
-                "final": config.get("openai_model")
-            },
-            "prompts_used": {
+        step_data = build_step_log_data(
+            phase="execute",
+            step_num=step_num,
+            config=config,
+            done=False,
+            done_reason="ステップ実行完了、次のループでdone判定",
+            prompts_used={
                 "draft": draft_prompt_info,
                 "review": review_prompt_info,
                 "final": final_prompt_info
             },
-            "final_commands": commands,
-            "allowlist_summary": allowlist_summary,
-            "draft": draft,
-            "draft_raw": sanitize_for_log(draft_raw),
-            "review": review,
-            "review_raw": sanitize_for_log(review_raw),
-            "final": final,
-            "final_raw": sanitize_for_log(final_raw),
-            "execution": exec_result,
-            "done": False,
-            "done_reason": "ステップ実行完了、次のループでdone判定"
-        }
+            final_commands=commands,
+            allowlist_summary=allowlist_summary,
+            draft=draft,
+            draft_raw=sanitize_for_log(draft_raw),
+            review=review,
+            review_raw=sanitize_for_log(review_raw),
+            final=final,
+            final_raw=sanitize_for_log(final_raw),
+            execution=exec_result
+        )
         write_step_log(config, step_num, step_data)
 
         # コンテキスト更新
@@ -618,11 +680,14 @@ def main():
 
     else:
         print(f"[WARN] max_steps ({max_steps}) に到達。done=False のまま終了。")
-        write_step_log(config, max_steps + 1, {
-            "phase": "max_steps_reached",
-            "done": False,
-            "done_reason": f"max_steps ({max_steps}) に到達したが目標未達成"
-        })
+        step_data = build_step_log_data(
+            phase="max_steps_reached",
+            step_num=max_steps + 1,
+            config=config,
+            done=False,
+            done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
+        )
+        write_step_log(config, max_steps + 1, step_data)
 
     print("")
     print("=" * 60)
