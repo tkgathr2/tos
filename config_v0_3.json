@@ -4,7 +4,12 @@
   "s5_settings": {
     "enabled": true,
     "description": "S-5 experimental features",
-    "experimental_warning": true
+    "experimental_warning": true,
+    "job_loop": {
+      "enabled": true,
+      "max_jobs": 3,
+      "job_name": "sample"
+    }
   },
   "openai_model": "gpt-4o-mini",
   "anthropic_model": "claude-3-haiku-20240307",

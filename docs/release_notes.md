@@ -14,6 +14,18 @@
 - Updated runbook.md with S-5 section and recommended workflow
 - Added experimental_warning setting to s5_settings
 
+### S-5 job_loop
+
+- Added job_loop configuration to s5_settings (enabled, max_jobs, job_name)
+- Added job_loop_enabled, job_name, job_index to step_log
+- job_index is saved to and restored from phase_state.json
+- job_index increments after each done, enabling multi-job sequences
+- job_loop_complete phase when job_index > max_jobs
+- cc_run.ps1 displays job_loop_complete status (not an error)
+- test mode treats job_loop_complete as passed
+- phase_summary includes job_loop_enabled and job_loop object
+- Updated runbook.md with job_loop documentation
+
 ## S-4 Changes
 
 - Added run/test/cleanrun/checkpoint/rollback modes to cc_run.ps1

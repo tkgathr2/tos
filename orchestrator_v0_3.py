@@ -79,7 +79,8 @@ def load_phase_state(config: dict) -> dict:
 
 def save_phase_state(config: dict, current_phase: str, current_step: int,
                      last_done: bool, last_done_reason: str,
-                     next_instruction_id: str = None) -> Path:
+                     next_instruction_id: str = None,
+                     job_index: int = None) -> Path:
     """フェーズ状態を保存する
 
     Args:
@@ -89,6 +90,7 @@ def save_phase_state(config: dict, current_phase: str, current_step: int,
         last_done: 最後のdone判定結果
         last_done_reason: done判定の理由
         next_instruction_id: 次の指示書ID
+        job_index: job_loopのインデックス (JG)
 
     Returns:
         Path: 保存したファイルのパス
@@ -114,6 +116,7 @@ def save_phase_state(config: dict, current_phase: str, current_step: int,
         "last_done": last_done,
         "last_done_reason": last_done_reason,
         "next_instruction_id": next_instruction_id,
+        "job_index": job_index,
         "updated_at": datetime.now().isoformat()
     }
 
@@ -313,6 +316,9 @@ def build_step_log_data(
     stopped: bool = False,
     is_experimental: bool = False,
     s5_flag: bool = False,
+    job_loop_enabled: bool = False,
+    job_name: str = None,
+    job_index: int = None,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -335,6 +341,9 @@ def build_step_log_data(
         "stopped": stopped,
         "is_experimental": is_experimental,
         "s5_flag": s5_flag,
+        "job_loop_enabled": job_loop_enabled,
+        "job_name": job_name,
+        "job_index": job_index,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -746,7 +755,7 @@ def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     return text
 
 
-def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None) -> Path:
+def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
 
     Args:
@@ -754,6 +763,7 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         skipped_steps: スキップしたステップのリスト
         execution_summary: 実行サマリ
         end_reason: 終了理由
+        job_loop_info: job_loop情報 (JH)
 
     Returns:
         Path: 出力ファイルのパス
@@ -858,6 +868,10 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
     s5_settings = config.get("s5_settings", {})
     is_experimental = s5_settings.get("enabled", False)
 
+    # JH: job_loop情報を取得
+    job_loop_settings = s5_settings.get("job_loop", {})
+    job_loop_enabled = job_loop_settings.get("enabled", False)
+
     # サマリを構築
     summary = {
         "generated_at": datetime.now().isoformat(),
@@ -865,6 +879,8 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "previous_phase": "S-4",
         "is_experimental": is_experimental,
         "experimental": is_experimental,
+        "job_loop_enabled": job_loop_enabled,
+        "job_loop": job_loop_info,
         "total_steps": len(steps),
         "success_count": success_count,
         "fail_count": fail_count,
@@ -965,6 +981,44 @@ def main():
     if is_experimental:
         print("S-5 experimental mode enabled")
 
+    # JB: job_loop 設定読み込み
+    job_loop_settings = s5_settings.get("job_loop", {})
+    job_loop_enabled = job_loop_settings.get("enabled", False)
+    job_loop_max_jobs = job_loop_settings.get("max_jobs", 1)
+    job_loop_job_name = job_loop_settings.get("job_name", "default")
+
+    # JC: job_index 初期化（job_loop.enabled=true の場合のみ有効）
+    # phase_stateからjob_indexを復元、なければ1から開始
+    job_index = None
+    if job_loop_enabled:
+        if phase_state and phase_state.get("job_index") is not None:
+            job_index = phase_state.get("job_index")
+        else:
+            job_index = 1
+        print(f"job_loop enabled: max_jobs={job_loop_max_jobs}, job_name={job_loop_job_name}, job_index={job_index}")
+        # JF: max_jobs到達チェック（事前チェック）
+        if job_index > job_loop_max_jobs:
+            print(f"job_loop_complete: job_index({job_index}) > max_jobs({job_loop_max_jobs})")
+            save_phase_state(
+                config=config,
+                current_phase="job_loop_complete",
+                current_step=start_step,
+                last_done=True,
+                last_done_reason=f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
+                job_index=job_index
+            )
+            # JH: job_loop_info を構築
+            job_loop_complete_info = {
+                "enabled": job_loop_enabled,
+                "max_jobs": job_loop_max_jobs,
+                "job_name": job_loop_job_name,
+                "current_job_index": job_index,
+                "completed": True
+            }
+            write_phase_summary(config, [], {}, f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達", job_loop_complete_info)
+            print(f"TOS v0.3 Orchestrator 終了 (job_loop_complete)")
+            sys.exit(0)
+
     # 7. メインループ
     max_steps = config.get("max_steps", 8)
     context = {"history": []}
@@ -1004,6 +1058,9 @@ def main():
                 message="目標達成",
                 is_experimental=is_experimental,
                 s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index,
                 next_phase_name=phase_result["next_phase_name"],
                 next_phase_done_condition=phase_result["next_phase_done_condition"],
                 next_instruction_id=phase_result["next_instruction_id"],
@@ -1012,16 +1069,31 @@ def main():
                 next_instruction_expected_outputs=phase_result["next_instruction_expected_outputs"]
             )
             write_step_log(config, step_num, step_data)
-            # フェーズ状態を保存（完了）
-            save_phase_state(
-                config=config,
-                current_phase="done",
-                current_step=step_num,
-                last_done=True,
-                last_done_reason=phase_result["done_reason"],
-                next_instruction_id=phase_result["next_instruction_id"]
-            )
-            end_reason = "done"
+
+            # JE: job_loop enabled の場合、job_index++ して保存
+            if job_loop_enabled:
+                next_job_index = job_index + 1
+                save_phase_state(
+                    config=config,
+                    current_phase="done",
+                    current_step=step_num,
+                    last_done=True,
+                    last_done_reason=phase_result["done_reason"],
+                    next_instruction_id=phase_result["next_instruction_id"],
+                    job_index=next_job_index
+                )
+                end_reason = f"done (job {job_index}/{job_loop_max_jobs} completed)"
+            else:
+                # フェーズ状態を保存（完了）
+                save_phase_state(
+                    config=config,
+                    current_phase="done",
+                    current_step=step_num,
+                    last_done=True,
+                    last_done_reason=phase_result["done_reason"],
+                    next_instruction_id=phase_result["next_instruction_id"]
+                )
+                end_reason = "done"
             break
 
         # API呼び出し: draft (ChatGPT)
@@ -1038,6 +1110,9 @@ def main():
                 stopped=True,
                 is_experimental=is_experimental,
                 s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index,
                 prompts_used={"draft": draft_prompt_info},
                 draft_raw=sanitize_for_log(draft_raw)
             )
@@ -1047,7 +1122,8 @@ def main():
                 current_phase="fatal_error",
                 current_step=step_num,
                 last_done=False,
-                last_done_reason="fatal_error: draft生成失敗"
+                last_done_reason="fatal_error: draft生成失敗",
+                job_index=job_index
             )
             end_reason = "fatal_error: draft生成失敗"
             break
@@ -1066,6 +1142,9 @@ def main():
                 stopped=True,
                 is_experimental=is_experimental,
                 s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
                 draft=draft,
                 review_raw=sanitize_for_log(review_raw)
@@ -1076,7 +1155,8 @@ def main():
                 current_phase="fatal_error",
                 current_step=step_num,
                 last_done=False,
-                last_done_reason="fatal_error: review生成失敗"
+                last_done_reason="fatal_error: review生成失敗",
+                job_index=job_index
             )
             end_reason = "fatal_error: review生成失敗"
             break
@@ -1095,6 +1175,9 @@ def main():
                 stopped=True,
                 is_experimental=is_experimental,
                 s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
                 draft=draft,
                 review=review,
@@ -1106,7 +1189,8 @@ def main():
                 current_phase="fatal_error",
                 current_step=step_num,
                 last_done=False,
-                last_done_reason="fatal_error: final生成失敗"
+                last_done_reason="fatal_error: final生成失敗",
+                job_index=job_index
             )
             end_reason = "fatal_error: final生成失敗"
             break
@@ -1165,7 +1249,10 @@ def main():
                 message=f"deny: {deny_reason_str}",
                 stopped=stop_on_deny,
                 is_experimental=is_experimental,
-                s5_flag=s5_flag
+                s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index
             )
             write_step_log(config, step_num, step_data)
 
@@ -1175,7 +1262,8 @@ def main():
                 current_phase="deny",
                 current_step=step_num + 1,
                 last_done=False,
-                last_done_reason=f"deny: {deny_reason_str}"
+                last_done_reason=f"deny: {deny_reason_str}",
+                job_index=job_index
             )
 
             # stop_on_deny=trueの場合は即停止（context保存しない）
@@ -1231,7 +1319,10 @@ def main():
                 final_raw=sanitize_for_log(final_raw),
                 execution=exec_result,
                 is_experimental=is_experimental,
-                s5_flag=s5_flag
+                s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index
             )
             write_step_log(config, step_num, step_data)
 
@@ -1241,7 +1332,8 @@ def main():
                 current_phase="execute",
                 current_step=step_num + 1,  # 次のステップ番号
                 last_done=False,
-                last_done_reason="ステップ実行完了、次のループでdone判定"
+                last_done_reason="ステップ実行完了、次のループでdone判定",
+                job_index=job_index
             )
 
         # コンテキスト更新
@@ -1259,7 +1351,10 @@ def main():
             done=False,
             done_reason=f"max_steps ({max_steps}) に到達したが目標未達成",
             is_experimental=is_experimental,
-            s5_flag=s5_flag
+            s5_flag=s5_flag,
+            job_loop_enabled=job_loop_enabled,
+            job_name=job_loop_job_name,
+            job_index=job_index
         )
         write_step_log(config, max_steps + 1, step_data)
         # フェーズ状態を保存（max_steps到達）
@@ -1268,12 +1363,23 @@ def main():
             current_phase="max_steps_reached",
             current_step=max_steps + 1,
             last_done=False,
-            last_done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
+            last_done_reason=f"max_steps ({max_steps}) に到達したが目標未達成",
+            job_index=job_index
         )
         end_reason = f"max_steps_reached: {max_steps}"
 
+    # JH: job_loop_info を構築
+    job_loop_info = None
+    if job_loop_enabled:
+        job_loop_info = {
+            "enabled": job_loop_enabled,
+            "max_jobs": job_loop_max_jobs,
+            "job_name": job_loop_job_name,
+            "current_job_index": job_index
+        }
+
     # フェーズサマリを出力
-    write_phase_summary(config, skipped_steps, total_execution_summary, end_reason)
+    write_phase_summary(config, skipped_steps, total_execution_summary, end_reason, job_loop_info)
 
     print("")
     print(f"TOS v0.3 Orchestrator 終了 ({end_reason})")

@@ -347,9 +347,87 @@ S-5 is an experimental phase for testing new features.
 ```json
 "s5_settings": {
   "enabled": true,
-  "description": "S-5 experimental features"
+  "description": "S-5 experimental features",
+  "experimental_warning": true,
+  "job_loop": {
+    "enabled": true,
+    "max_jobs": 3,
+    "job_name": "sample"
+  }
 }
 ```
+
+## S-5 job_loop
+
+job_loop is an experimental feature for running multiple jobs sequentially.
+
+### job_loop configuration
+
+```json
+"s5_settings": {
+  "enabled": true,
+  "job_loop": {
+    "enabled": true,
+    "max_jobs": 3,
+    "job_name": "sample"
+  }
+}
+```
+
+- enabled: enable job_loop mode
+- max_jobs: maximum number of jobs to run
+- job_name: name prefix for job identification
+
+### behavior
+
+- each run executes 1 job (1 step execution cycle)
+- job_index starts at 1 and increments after each done
+- job_index is saved in phase_state.json for continuation
+- when job_index > max_jobs, phase becomes job_loop_complete
+
+### job_loop_complete
+
+- phase_state.current_phase = "job_loop_complete"
+- not an error state, treated as passed in test mode
+- end_reason shows max_jobs reached message
+
+### step_log fields
+
+- job_loop_enabled: true/false
+- job_name: job name from config
+- job_index: current job index (1-based)
+
+### phase_summary fields
+
+- job_loop_enabled: true/false
+- job_loop: object with enabled, max_jobs, job_name, current_job_index, completed
+
+### example workflow
+
+```powershell
+# 1. first job run
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode cleanrun
+# job_index=1, after done job_index becomes 2
+
+# 2. second job run
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
+# job_index=2, after done job_index becomes 3
+
+# 3. third job run
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
+# job_index=3, after done job_index becomes 4
+
+# 4. fourth run - job_loop_complete
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
+# job_index=4 > max_jobs=3, ends with job_loop_complete
+```
+
+### end_reason values for job_loop
+
+- done (job X/Y completed): normal job completion
+- job_loop_complete: max_jobs(...) reached
+- deny: command was denied
+- fatal_error: API or system error
 
 ### S-5 completion checklist
 
@@ -357,3 +435,5 @@ S-5 is an experimental phase for testing new features.
 - [ ] is_experimental flag saved in step_log
 - [ ] phase_summary includes previous_phase=S-4
 - [ ] test mode warning displayed
+- [ ] job_loop mode works correctly
+- [ ] job_loop_complete handled properly

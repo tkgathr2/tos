@@ -331,6 +331,10 @@ if ($Mode -eq "test") {
       Write-Host "FAIL phase is fatal_error: $($state.last_done_reason)"
       $testPassed = $false
     }
+    # JJ: job_loop_complete is treated as passed
+    if ($state.current_phase -eq "job_loop_complete") {
+      Write-Host "job_loop_complete: $($state.last_done_reason)"
+    }
   }
 
   # Check step files
@@ -414,6 +418,13 @@ if (Test-Path $phaseState) {
   elseif ($state.current_phase -eq "deny") {
     Write-Host "deny $($state.last_done_reason)"
     $exitWithError = $true
+  }
+  # JI: job_loop_complete phase: show completion message (not an error)
+  elseif ($state.current_phase -eq "job_loop_complete") {
+    Write-Host "job_loop_complete $($state.last_done_reason)"
+    if ($state.job_index) {
+      Write-Host "job_index $($state.job_index)"
+    }
   }
 } else {
   Write-Host "phase_state none"
