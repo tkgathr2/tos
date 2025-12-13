@@ -113,9 +113,54 @@ list of keywords that trigger command denial
 - may require manual intervention
 - exit code 1
 
+### stopped
+
+- step_log.stopped=true indicates execution was halted
+- stopped steps are not counted in success_count
+- cc_run.ps1 shows "stopped phase=<phase> step=<step_num>" when stopped=true
+- phase_summary includes stopped_steps and stopped_count
+
 ### phase_summary
 
 - denied_steps: list of steps with phase=deny
 - fatal_error_steps: list of steps with phase=fatal_error
+- stopped_steps: list of steps with stopped=true
 - denied_count: number of deny steps
 - fatal_error_count: number of fatal_error steps
+- stopped_count: number of stopped steps
+- stop_on_deny: current stop_on_deny setting value
+- end_reason: reason for execution termination
+
+## stop_on_deny
+
+### configuration
+
+```json
+"execution_policy": {
+  "default_action": "allow",
+  "stop_on_deny": true,
+  "deny_if_contains": [
+    "Remove-Item",
+    "rmdir",
+    "del "
+  ]
+}
+```
+
+### behavior
+
+- stop_on_deny=true (default): execution stops immediately when deny occurs
+- stop_on_deny=false: execution continues to next step after deny
+- when stopped, step_log.stopped=true and end_reason is set
+
+### example with stop_on_deny=false
+
+```json
+"execution_policy": {
+  "default_action": "allow",
+  "stop_on_deny": false,
+  "deny_if_contains": ["Remove-Item"]
+}
+```
+
+This allows the orchestrator to skip denied commands and continue with subsequent steps.

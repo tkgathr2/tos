@@ -195,6 +195,17 @@ if ($Mode -eq "test") {
     $testPassed = $false
   }
 
+  # DK: Check for stopped=true in any step
+  if ($stepFiles.Count -gt 0) {
+    foreach ($sf in $stepFiles) {
+      $stepData = Get-Content $sf.FullName -Encoding UTF8 | ConvertFrom-Json
+      if ($stepData.stopped -eq $true) {
+        Write-Host "FAIL step $($sf.Name) stopped=true phase=$($stepData.phase)"
+        $testPassed = $false
+      }
+    }
+  }
+
   if ($testPassed) {
     Write-Host "test passed"
   } else {
@@ -225,18 +236,29 @@ $exitWithError = $false
 if (Test-Path $phaseState) {
   $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
   Write-Host "phase_state phase=$($state.current_phase) step=$($state.current_step) done=$($state.last_done)"
-  # CG: deny phase: show deny reason and exit 1
-  if ($state.current_phase -eq "deny") {
-    Write-Host "deny $($state.last_done_reason)"
-    $exitWithError = $true
-  }
+  # DJ: Priority order: fatal_error > deny > stopped
   # CH: fatal_error phase: show fatal_error reason and exit 1
   if ($state.current_phase -eq "fatal_error") {
     Write-Host "fatal_error $($state.last_done_reason)"
     $exitWithError = $true
   }
+  # CG: deny phase: show deny reason and exit 1
+  elseif ($state.current_phase -eq "deny") {
+    Write-Host "deny $($state.last_done_reason)"
+    $exitWithError = $true
+  }
 } else {
   Write-Host "phase_state none"
+}
+
+# DI: Check latest step for stopped=true
+$stepsDir = Join-Path $Root "logs\steps"
+$stepFilesForStopped = Get-ChildItem -Path $stepsDir -Filter "step_*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+if ($stepFilesForStopped.Count -gt 0) {
+  $latestStepData = Get-Content $stepFilesForStopped[0].FullName -Encoding UTF8 | ConvertFrom-Json
+  if ($latestStepData.stopped -eq $true) {
+    Write-Host "stopped phase=$($latestStepData.phase) step=$($latestStepData.step_num)"
+  }
 }
 
 $stepsDir = Join-Path $Root "logs\steps"
@@ -250,7 +272,13 @@ if ($stepFiles.Count -gt 0) {
 
 $phaseSummary = Join-Path $Root "logs\phase_summary.json"
 if (Test-Path $phaseSummary) {
-  Write-Host "phase_summary exists"
+  $summaryData = Get-Content $phaseSummary -Encoding UTF8 | ConvertFrom-Json
+  # DQ: Show stop_on_deny setting
+  Write-Host "phase_summary exists stop_on_deny=$($summaryData.stop_on_deny)"
+  # DT: Show end_reason if exists
+  if ($summaryData.end_reason) {
+    Write-Host "end_reason $($summaryData.end_reason)"
+  }
 } else {
   Write-Host "phase_summary none"
 }

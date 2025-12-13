@@ -297,6 +297,7 @@ def build_step_log_data(
     final_raw: str = None,
     execution: dict = None,
     message: str = None,
+    stopped: bool = False,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -316,6 +317,7 @@ def build_step_log_data(
         "done_reason": done_reason,
         "error": error,
         "message": message,
+        "stopped": stopped,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -727,13 +729,14 @@ def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     return text
 
 
-def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None) -> Path:
+def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
 
     Args:
         config: 設定dict
         skipped_steps: スキップしたステップのリスト
         execution_summary: 実行サマリ
+        end_reason: 終了理由
 
     Returns:
         Path: 出力ファイルのパス
@@ -742,6 +745,10 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
     steps_dir = logs_dir / "steps"
     summary_file = logs_dir / "phase_summary.json"
 
+    # stop_on_deny設定を取得
+    exec_policy = config.get("execution_policy", {})
+    stop_on_deny = exec_policy.get("stop_on_deny", True)
+
     # 全ステップログを読み込み
     step_files = sorted(steps_dir.glob("step_*.json"))
     steps = []
@@ -749,8 +756,10 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
     fail_count = 0
     denied_count = 0
     fatal_error_count = 0
+    stopped_count = 0
     denied_steps = []
     fatal_error_steps = []
+    stopped_steps = []
     final_done = False
     final_phase_result = None
 
@@ -765,29 +774,54 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
                     "done_reason": step_data.get("done_reason"),
                     "timestamp": step_data.get("timestamp"),
                     "error": step_data.get("error"),
-                    "message": step_data.get("message")
+                    "message": step_data.get("message"),
+                    "stopped": step_data.get("stopped", False)
                 }
                 steps.append(step_info)
 
-                # 統計情報を集計
-                if step_data.get("phase") == "error":
-                    fail_count += 1
-                elif step_data.get("phase") == "deny":
-                    denied_count += 1
-                    denied_steps.append({
+                # stopped=trueの場合はstopped_stepsに追加（success_countには含めない）
+                if step_data.get("stopped"):
+                    stopped_count += 1
+                    stopped_steps.append({
                         "step_num": step_data.get("step_num"),
-                        "reason": step_data.get("done_reason"),
-                        "message": step_data.get("message")
+                        "phase": step_data.get("phase"),
+                        "reason": step_data.get("done_reason")
                     })
-                elif step_data.get("phase") == "fatal_error":
-                    fatal_error_count += 1
-                    fatal_error_steps.append({
-                        "step_num": step_data.get("step_num"),
-                        "reason": step_data.get("done_reason"),
-                        "error": step_data.get("error")
-                    })
-                elif step_data.get("phase") in ["execute", "done"]:
-                    success_count += 1
+                    # denyやfatal_errorのカウントも行う
+                    if step_data.get("phase") == "deny":
+                        denied_count += 1
+                        denied_steps.append({
+                            "step_num": step_data.get("step_num"),
+                            "reason": step_data.get("done_reason"),
+                            "message": step_data.get("message")
+                        })
+                    elif step_data.get("phase") == "fatal_error":
+                        fatal_error_count += 1
+                        fatal_error_steps.append({
+                            "step_num": step_data.get("step_num"),
+                            "reason": step_data.get("done_reason"),
+                            "error": step_data.get("error")
+                        })
+                else:
+                    # 統計情報を集計（stopped=falseの場合のみ）
+                    if step_data.get("phase") == "error":
+                        fail_count += 1
+                    elif step_data.get("phase") == "deny":
+                        denied_count += 1
+                        denied_steps.append({
+                            "step_num": step_data.get("step_num"),
+                            "reason": step_data.get("done_reason"),
+                            "message": step_data.get("message")
+                        })
+                    elif step_data.get("phase") == "fatal_error":
+                        fatal_error_count += 1
+                        fatal_error_steps.append({
+                            "step_num": step_data.get("step_num"),
+                            "reason": step_data.get("done_reason"),
+                            "error": step_data.get("error")
+                        })
+                    elif step_data.get("phase") in ["execute", "done"]:
+                        success_count += 1
 
                 # 最終結果を記録
                 if step_data.get("done"):
@@ -811,12 +845,16 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "fail_count": fail_count,
         "denied_count": denied_count,
         "fatal_error_count": fatal_error_count,
+        "stopped_count": stopped_count,
         "skipped_count": len(skipped_steps) if skipped_steps else 0,
         "final_done": final_done,
         "final_phase_result": final_phase_result,
         "execution_summary": execution_summary,
+        "stop_on_deny": stop_on_deny,
+        "end_reason": end_reason,
         "denied_steps": denied_steps,
         "fatal_error_steps": fatal_error_steps,
+        "stopped_steps": stopped_steps,
         "skipped_steps": skipped_steps or [],
         "steps": steps
     }
@@ -905,6 +943,7 @@ def main():
         "timeout_count": 0,
         "failed_count": 0
     }
+    end_reason = None  # 終了理由
 
     for step_num in range(start_step, max_steps + 1):
         print("")
@@ -948,6 +987,7 @@ def main():
                 last_done_reason=phase_result["done_reason"],
                 next_instruction_id=phase_result["next_instruction_id"]
             )
+            end_reason = "done"
             break
 
         # API呼び出し: draft (ChatGPT)
@@ -955,60 +995,91 @@ def main():
         if draft is None:
             print("draft生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
-                phase="error",
+                phase="fatal_error",
                 step_num=step_num,
                 config=config,
                 done=False,
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="draft生成失敗",
+                stopped=True,
                 prompts_used={"draft": draft_prompt_info},
                 draft_raw=sanitize_for_log(draft_raw)
             )
             write_step_log(config, step_num, step_data)
-            sys.exit(1)
+            save_phase_state(
+                config=config,
+                current_phase="fatal_error",
+                current_step=step_num,
+                last_done=False,
+                last_done_reason="fatal_error: draft生成失敗"
+            )
+            end_reason = "fatal_error: draft生成失敗"
+            break
 
         # API呼び出し: review (Claude)
         review_raw, review, review_prompt_info = review_plus(config, step_num, draft, context, anthropic_key)
         if review is None:
             print("review生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
-                phase="error",
+                phase="fatal_error",
                 step_num=step_num,
                 config=config,
                 done=False,
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="review生成失敗",
+                stopped=True,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
                 draft=draft,
                 review_raw=sanitize_for_log(review_raw)
             )
             write_step_log(config, step_num, step_data)
-            sys.exit(1)
+            save_phase_state(
+                config=config,
+                current_phase="fatal_error",
+                current_step=step_num,
+                last_done=False,
+                last_done_reason="fatal_error: review生成失敗"
+            )
+            end_reason = "fatal_error: review生成失敗"
+            break
 
         # API呼び出し: final (ChatGPT)
         final_raw, final, final_prompt_info = make_final(config, step_num, draft, review, openai_key)
         if final is None:
             print("final生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
-                phase="error",
+                phase="fatal_error",
                 step_num=step_num,
                 config=config,
                 done=False,
                 done_reason="API呼び出しまたはJSONパース失敗",
                 error="final生成失敗",
+                stopped=True,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
                 draft=draft,
                 review=review,
                 final_raw=sanitize_for_log(final_raw)
             )
             write_step_log(config, step_num, step_data)
-            sys.exit(1)
+            save_phase_state(
+                config=config,
+                current_phase="fatal_error",
+                current_step=step_num,
+                last_done=False,
+                last_done_reason="fatal_error: final生成失敗"
+            )
+            end_reason = "fatal_error: final生成失敗"
+            break
 
         # コマンド取得
         commands = final.get("final_commands", [])
 
         # deny判定（run_commandsより前）
         pre_check = pre_check_commands(config, commands)
+
+        # stop_on_deny設定を取得
+        exec_policy = config.get("execution_policy", {})
+        stop_on_deny = exec_policy.get("stop_on_deny", True)
 
         if pre_check["all_denied"]:
             # 全コマンドがdeny: run_commandsを呼ばない
@@ -1051,11 +1122,12 @@ def main():
                     "denied_command_snippet": denied_snippets[0] if denied_snippets else None,
                     "denied_reason": deny_reason_str
                 },
-                message=f"deny: {deny_reason_str}"
+                message=f"deny: {deny_reason_str}",
+                stopped=stop_on_deny
             )
             write_step_log(config, step_num, step_data)
 
-            # フェーズ状態を保存（deny: current_step は次のステップ）
+            # フェーズ状態を保存
             save_phase_state(
                 config=config,
                 current_phase="deny",
@@ -1063,6 +1135,13 @@ def main():
                 last_done=False,
                 last_done_reason=f"deny: {deny_reason_str}"
             )
+
+            # stop_on_deny=trueの場合は即停止（context保存しない）
+            if stop_on_deny:
+                end_reason = f"deny: {deny_reason_str}"
+                break
+            # stop_on_deny=falseの場合は次stepへ（context保存しない）
+            continue
         else:
             # コマンド実行
             exec_result = run_commands(config, commands, python_path)
@@ -1145,12 +1224,13 @@ def main():
             last_done=False,
             last_done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
         )
+        end_reason = f"max_steps_reached: {max_steps}"
 
     # フェーズサマリを出力
-    write_phase_summary(config, skipped_steps, total_execution_summary)
+    write_phase_summary(config, skipped_steps, total_execution_summary, end_reason)
 
     print("")
-    print("TOS v0.3 Orchestrator 終了")
+    print(f"TOS v0.3 Orchestrator 終了 ({end_reason})")
 
 
 if __name__ == "__main__":
