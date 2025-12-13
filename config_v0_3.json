@@ -12,7 +12,10 @@
     "deny_if_contains": [
       "Remove-Item",
       "rmdir",
-      "del "
+      "del ",
+      "format ",
+      "shutdown",
+      "reg add"
     ]
   },
   "allow_types": ["powershell"],

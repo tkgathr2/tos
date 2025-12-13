@@ -96,3 +96,26 @@ list of keywords that trigger command denial
 - denied commands are not retried
 - phase_state.current_phase becomes "deny" when all commands are denied
 - cc_run.ps1 shows "deny <reason>" when phase is deny
+
+## deny vs fatal_error
+
+### deny
+
+- triggered by execution_policy deny_if_contains or deny_patterns
+- command was not allowed to execute
+- recoverable: fix config or prompt to avoid denied commands
+- exit code 1
+
+### fatal_error
+
+- triggered by unrecoverable errors (API failure, system error)
+- command execution or API call failed
+- may require manual intervention
+- exit code 1
+
+### phase_summary
+
+- denied_steps: list of steps with phase=deny
+- fatal_error_steps: list of steps with phase=fatal_error
+- denied_count: number of deny steps
+- fatal_error_count: number of fatal_error steps

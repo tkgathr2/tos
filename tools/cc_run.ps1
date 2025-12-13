@@ -174,6 +174,17 @@ if ($Mode -eq "test") {
   if (-not (Test-Path $phaseState)) {
     Write-Host "FAIL phase_state.json not found"
     $testPassed = $false
+  } else {
+    # CL: Check for deny/fatal_error phase
+    $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
+    if ($state.current_phase -eq "deny") {
+      Write-Host "FAIL phase is deny: $($state.last_done_reason)"
+      $testPassed = $false
+    }
+    if ($state.current_phase -eq "fatal_error") {
+      Write-Host "FAIL phase is fatal_error: $($state.last_done_reason)"
+      $testPassed = $false
+    }
   }
 
   # Check step files
@@ -210,12 +221,19 @@ if ($orchExitCode -ne 0) {
 
 # 4) summary display
 $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
+$exitWithError = $false
 if (Test-Path $phaseState) {
   $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
   Write-Host "phase_state phase=$($state.current_phase) step=$($state.current_step) done=$($state.last_done)"
-  # deny phase: show deny reason
+  # CG: deny phase: show deny reason and exit 1
   if ($state.current_phase -eq "deny") {
     Write-Host "deny $($state.last_done_reason)"
+    $exitWithError = $true
+  }
+  # CH: fatal_error phase: show fatal_error reason and exit 1
+  if ($state.current_phase -eq "fatal_error") {
+    Write-Host "fatal_error $($state.last_done_reason)"
+    $exitWithError = $true
   }
 } else {
   Write-Host "phase_state none"
@@ -243,4 +261,7 @@ if ($SummaryFile) {
 }
 
 Write-Host "TOS cc_run end"
+if ($exitWithError) {
+  exit 1
+}
 exit 0

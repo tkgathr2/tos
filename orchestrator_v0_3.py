@@ -455,7 +455,7 @@ def check_allowlist(config: dict, cmd_type: str, code: str) -> tuple:
     """コマンドがallowlistを通過するか判定する
 
     Returns:
-        tuple: (allowed: bool, reason: str, matched_pattern: str or None)
+        tuple: (allowed: bool, reason: str, matched: str or None)
     """
     # 0. execution_policy チェック
     exec_policy = config.get("execution_policy", {})
@@ -481,6 +481,59 @@ def check_allowlist(config: dict, cmd_type: str, code: str) -> tuple:
             return False, f"禁止パターン '{pattern}' に一致", pattern
 
     return True, "allowlist通過", None
+
+
+def pre_check_commands(config: dict, commands: list) -> dict:
+    """コマンド実行前にdeny判定を行う
+
+    Returns:
+        dict: {
+            "all_denied": bool,
+            "denied_count": int,
+            "allowed_count": int,
+            "check_results": list of {
+                "type": str,
+                "code_snippet": str (200文字固定),
+                "allowed": bool,
+                "reason": str,
+                "matched": str or None
+            }
+        }
+    """
+    check_results = []
+    denied_count = 0
+    allowed_count = 0
+
+    for cmd in commands:
+        cmd_type = cmd.get("type", "")
+        code = cmd.get("code", "")
+
+        allowed, reason, matched = check_allowlist(config, cmd_type, code)
+
+        # denied_command_snippet は 200 文字固定
+        code_snippet = code[:200] if len(code) > 200 else code
+
+        check_results.append({
+            "type": cmd_type,
+            "code_snippet": code_snippet,
+            "allowed": allowed,
+            "reason": reason,
+            "matched": matched
+        })
+
+        if allowed:
+            allowed_count += 1
+        else:
+            denied_count += 1
+
+    all_denied = denied_count > 0 and allowed_count == 0
+
+    return {
+        "all_denied": all_denied,
+        "denied_count": denied_count,
+        "allowed_count": allowed_count,
+        "check_results": check_results
+    }
 
 
 def run_commands(config: dict, commands: list, python_path: str) -> dict:
@@ -695,6 +748,9 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
     success_count = 0
     fail_count = 0
     denied_count = 0
+    fatal_error_count = 0
+    denied_steps = []
+    fatal_error_steps = []
     final_done = False
     final_phase_result = None
 
@@ -702,7 +758,7 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         try:
             with open(step_file, "r", encoding="utf-8") as f:
                 step_data = json.load(f)
-                steps.append({
+                step_info = {
                     "step_num": step_data.get("step_num"),
                     "phase": step_data.get("phase"),
                     "done": step_data.get("done"),
@@ -710,13 +766,26 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
                     "timestamp": step_data.get("timestamp"),
                     "error": step_data.get("error"),
                     "message": step_data.get("message")
-                })
+                }
+                steps.append(step_info)
 
                 # 統計情報を集計
                 if step_data.get("phase") == "error":
                     fail_count += 1
                 elif step_data.get("phase") == "deny":
                     denied_count += 1
+                    denied_steps.append({
+                        "step_num": step_data.get("step_num"),
+                        "reason": step_data.get("done_reason"),
+                        "message": step_data.get("message")
+                    })
+                elif step_data.get("phase") == "fatal_error":
+                    fatal_error_count += 1
+                    fatal_error_steps.append({
+                        "step_num": step_data.get("step_num"),
+                        "reason": step_data.get("done_reason"),
+                        "error": step_data.get("error")
+                    })
                 elif step_data.get("phase") in ["execute", "done"]:
                     success_count += 1
 
@@ -741,10 +810,13 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "success_count": success_count,
         "fail_count": fail_count,
         "denied_count": denied_count,
+        "fatal_error_count": fatal_error_count,
         "skipped_count": len(skipped_steps) if skipped_steps else 0,
         "final_done": final_done,
         "final_phase_result": final_phase_result,
         "execution_summary": execution_summary,
+        "denied_steps": denied_steps,
+        "fatal_error_steps": fatal_error_steps,
         "skipped_steps": skipped_steps or [],
         "steps": steps
     }
@@ -932,44 +1004,22 @@ def main():
             write_step_log(config, step_num, step_data)
             sys.exit(1)
 
-        # コマンド実行
+        # コマンド取得
         commands = final.get("final_commands", [])
-        exec_result = run_commands(config, commands, python_path)
 
-        # execution_summary累積
-        step_summary = exec_result.get("execution_summary", {})
-        total_execution_summary["executed_count"] += step_summary.get("executed_count", 0)
-        total_execution_summary["denied_count"] += step_summary.get("denied_count", 0)
-        total_execution_summary["timeout_count"] += step_summary.get("timeout_count", 0)
-        total_execution_summary["failed_count"] += step_summary.get("failed_count", 0)
+        # deny判定（run_commandsより前）
+        pre_check = pre_check_commands(config, commands)
 
-        # allowlist判定サマリを作成
-        allowlist_summary = []
-        for cmd_result in exec_result.get("command_results", []):
-            summary = {
-                "type": cmd_result.get("type"),
-                "allowed": cmd_result.get("allowed"),
-                "reason": cmd_result.get("allow_reason") or cmd_result.get("deny_reason"),
-                "matched_pattern": cmd_result.get("matched_pattern"),
-                "executed": cmd_result.get("executed"),
-                "returncode": cmd_result.get("returncode"),
-                "timeout": cmd_result.get("timeout", False)
-            }
-            allowlist_summary.append(summary)
-
-        # execution_summaryを取得
-        step_exec_summary = exec_result.get("execution_summary", {})
-
-        # deny判定: 全コマンドがdenyされた場合
-        all_denied = (
-            step_exec_summary.get("denied_count", 0) > 0 and
-            step_exec_summary.get("executed_count", 0) == 0
-        )
-
-        if all_denied:
-            # 全コマンドがdenyされた場合
-            deny_reasons = [r.get("reason") for r in allowlist_summary if not r.get("allowed")]
+        if pre_check["all_denied"]:
+            # 全コマンドがdeny: run_commandsを呼ばない
+            deny_reasons = [r.get("reason") for r in pre_check["check_results"] if not r.get("allowed")]
             deny_reason_str = "; ".join(deny_reasons) if deny_reasons else "deny"
+
+            # denied_command_snippet (200文字固定)
+            denied_snippets = [r.get("code_snippet") for r in pre_check["check_results"] if not r.get("allowed")]
+
+            # execution_summary累積（denyのみ）
+            total_execution_summary["denied_count"] += pre_check["denied_count"]
 
             step_data = build_step_log_data(
                 phase="deny",
@@ -983,27 +1033,61 @@ def main():
                     "final": final_prompt_info
                 },
                 final_commands=commands,
-                allowlist_summary=allowlist_summary,
+                allowlist_summary=pre_check["check_results"],
                 draft=draft,
                 draft_raw=sanitize_for_log(draft_raw),
                 review=review,
                 review_raw=sanitize_for_log(review_raw),
                 final=final,
                 final_raw=sanitize_for_log(final_raw),
-                execution=exec_result,
+                execution={
+                    "command_results": [],
+                    "execution_summary": {
+                        "executed_count": 0,
+                        "denied_count": pre_check["denied_count"],
+                        "timeout_count": 0,
+                        "failed_count": 0
+                    },
+                    "denied_command_snippet": denied_snippets[0] if denied_snippets else None,
+                    "denied_reason": deny_reason_str
+                },
                 message=f"deny: {deny_reason_str}"
             )
             write_step_log(config, step_num, step_data)
 
-            # フェーズ状態を保存（deny）
+            # フェーズ状態を保存（deny: current_step は次のステップ）
             save_phase_state(
                 config=config,
                 current_phase="deny",
-                current_step=step_num,
+                current_step=step_num + 1,
                 last_done=False,
-                last_done_reason=f"全コマンドがdeny: {deny_reason_str}"
+                last_done_reason=f"deny: {deny_reason_str}"
             )
         else:
+            # コマンド実行
+            exec_result = run_commands(config, commands, python_path)
+
+            # execution_summary累積
+            step_summary = exec_result.get("execution_summary", {})
+            total_execution_summary["executed_count"] += step_summary.get("executed_count", 0)
+            total_execution_summary["denied_count"] += step_summary.get("denied_count", 0)
+            total_execution_summary["timeout_count"] += step_summary.get("timeout_count", 0)
+            total_execution_summary["failed_count"] += step_summary.get("failed_count", 0)
+
+            # allowlist判定サマリを作成
+            allowlist_summary = []
+            for cmd_result in exec_result.get("command_results", []):
+                summary = {
+                    "type": cmd_result.get("type"),
+                    "allowed": cmd_result.get("allowed"),
+                    "reason": cmd_result.get("allow_reason") or cmd_result.get("deny_reason"),
+                    "matched_pattern": cmd_result.get("matched_pattern"),
+                    "executed": cmd_result.get("executed"),
+                    "returncode": cmd_result.get("returncode"),
+                    "timeout": cmd_result.get("timeout", False)
+                }
+                allowlist_summary.append(summary)
+
             # 通常実行
             step_data = build_step_log_data(
                 phase="execute",
