@@ -63,7 +63,7 @@ if ($Mode -eq "checkpoint") {
   # EP: checkpoint output
   Write-Host "checkpoint $hash"
 
-  # EO: Save summary with checkpoint_hash
+  # EO/FG: Save summary with checkpoint_hash (JSON and TXT)
   if ($SummaryFile) {
     if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
       $fullPath = $SummaryFile
@@ -75,9 +75,14 @@ if ($Mode -eq "checkpoint") {
       checkpoint_hash = $hash
     }
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+    # FG: Save TXT
+    $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
+    $txtContent = "mode=checkpoint checkpoint_hash=$hash"
+    $txtContent | Set-Content -Path $txtPath -Encoding UTF8
     Write-Host "summary saved $fullPath"
   }
 
+  # FM: Summary display
   Write-Host "TOS cc_run end"
   exit 0
 }
@@ -122,7 +127,7 @@ if ($Mode -eq "rollback") {
   # EQ: rollback output
   Write-Host "rollback $TargetCommit"
 
-  # EO: Save summary with rollback_target
+  # EO/FG: Save summary with rollback_target (JSON and TXT)
   if ($SummaryFile) {
     if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
       $fullPath = $SummaryFile
@@ -134,6 +139,10 @@ if ($Mode -eq "rollback") {
       rollback_target = $TargetCommit
     }
     $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+    # FG: Save TXT
+    $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
+    $txtContent = "mode=rollback rollback_target=$TargetCommit"
+    $txtContent | Set-Content -Path $txtPath -Encoding UTF8
     Write-Host "summary saved $fullPath"
   }
 
