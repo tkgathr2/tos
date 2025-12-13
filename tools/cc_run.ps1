@@ -2,13 +2,18 @@ param(
   [string]$Root = "C:\Users\takag\00_dev\tos",
   [string]$Mode,
   [switch]$Clean,
-  [string]$SummaryFile
+  [string]$SummaryFile,
+  [string]$CheckpointName,
+  [string]$TargetCommit
 )
 
 $ErrorActionPreference = "Stop"
 
+# EE: Updated usage
 function Show-Usage {
-  Write-Host "usage cc_run.ps1 -Mode run|test|cleanrun -Clean -SummaryFile path"
+  Write-Host "usage cc_run.ps1 -Mode run|test|cleanrun|checkpoint|rollback -Clean -SummaryFile path"
+  Write-Host "  checkpoint: -CheckpointName <text>"
+  Write-Host "  rollback: -TargetCommit <hash> (optional, uses last_checkpoint.txt if not specified)"
 }
 
 # Check -Mode is specified
@@ -18,7 +23,7 @@ if (-not $PSBoundParameters.ContainsKey('Mode')) {
 }
 
 # Check -Mode is valid
-if ($Mode -notin @("run", "test", "cleanrun")) {
+if ($Mode -notin @("run", "test", "cleanrun", "checkpoint", "rollback")) {
   Show-Usage
   exit 1
 }
@@ -26,6 +31,126 @@ if ($Mode -notin @("run", "test", "cleanrun")) {
 Write-Host "TOS cc_run start"
 Write-Host "Root $Root"
 Write-Host "Mode $Mode"
+
+# EC: checkpoint mode
+if ($Mode -eq "checkpoint") {
+  if (-not $CheckpointName) {
+    Write-Host "error: -CheckpointName required for checkpoint mode"
+    Show-Usage
+    exit 1
+  }
+
+  $checkpointScript = Join-Path $Root "tools\checkpoint.ps1"
+  if (-not (Test-Path $checkpointScript)) {
+    Write-Host "checkpoint.ps1 not found $checkpointScript"
+    exit 1
+  }
+
+  powershell -NoProfile -ExecutionPolicy Bypass -File $checkpointScript -Root $Root -Name $CheckpointName
+  $cpExitCode = $LASTEXITCODE
+
+  if ($cpExitCode -ne 0) {
+    Write-Host "checkpoint failed with exit code $cpExitCode"
+    exit $cpExitCode
+  }
+
+  # EJ: Save commit hash to last_checkpoint.txt
+  $hash = git -C $Root rev-parse HEAD
+  $lastCheckpointFile = Join-Path $Root "logs\last_checkpoint.txt"
+  $hash | Set-Content -Path $lastCheckpointFile -Encoding UTF8
+  Write-Host "last_checkpoint saved $lastCheckpointFile"
+
+  # EP: checkpoint output
+  Write-Host "checkpoint $hash"
+
+  # EO: Save summary with checkpoint_hash
+  if ($SummaryFile) {
+    if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
+      $fullPath = $SummaryFile
+    } else {
+      $fullPath = Join-Path $Root $SummaryFile
+    }
+    $summary = @{
+      mode = "checkpoint"
+      checkpoint_hash = $hash
+    }
+    $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+    Write-Host "summary saved $fullPath"
+  }
+
+  Write-Host "TOS cc_run end"
+  exit 0
+}
+
+# ED: rollback mode
+if ($Mode -eq "rollback") {
+  # ER: Check for dirty working tree before rollback
+  $gitStatus = git -C $Root status --porcelain
+  if ($gitStatus) {
+    Write-Host "error: working tree is dirty, commit or stash changes first"
+    Write-Host $gitStatus
+    exit 1
+  }
+
+  # EL: If TargetCommit not specified, use last_checkpoint.txt
+  if (-not $TargetCommit) {
+    $lastCheckpointFile = Join-Path $Root "logs\last_checkpoint.txt"
+    if (Test-Path $lastCheckpointFile) {
+      $TargetCommit = (Get-Content $lastCheckpointFile -Encoding UTF8 | Select-Object -First 1).Trim()
+      Write-Host "using last_checkpoint $TargetCommit"
+    } else {
+      Write-Host "error: -TargetCommit required (no last_checkpoint.txt found)"
+      Show-Usage
+      exit 1
+    }
+  }
+
+  $rollbackScript = Join-Path $Root "tools\rollback.ps1"
+  if (-not (Test-Path $rollbackScript)) {
+    Write-Host "rollback.ps1 not found $rollbackScript"
+    exit 1
+  }
+
+  powershell -NoProfile -ExecutionPolicy Bypass -File $rollbackScript -Root $Root -TargetCommit $TargetCommit
+  $rbExitCode = $LASTEXITCODE
+
+  if ($rbExitCode -ne 0) {
+    Write-Host "rollback failed with exit code $rbExitCode"
+    exit $rbExitCode
+  }
+
+  # EQ: rollback output
+  Write-Host "rollback $TargetCommit"
+
+  # EO: Save summary with rollback_target
+  if ($SummaryFile) {
+    if ([System.IO.Path]::IsPathRooted($SummaryFile)) {
+      $fullPath = $SummaryFile
+    } else {
+      $fullPath = Join-Path $Root $SummaryFile
+    }
+    $summary = @{
+      mode = "rollback"
+      rollback_target = $TargetCommit
+    }
+    $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
+    Write-Host "summary saved $fullPath"
+  }
+
+  # EM: Auto run test after rollback
+  Write-Host "auto test after rollback"
+  $ccRunScript = Join-Path $Root "tools\cc_run.ps1"
+  powershell -NoProfile -ExecutionPolicy Bypass -File $ccRunScript -Root $Root -Mode test
+  $testExitCode = $LASTEXITCODE
+
+  if ($testExitCode -ne 0) {
+    Write-Host "test after rollback failed"
+    exit 1
+  }
+
+  Write-Host "TOS cc_run end"
+  exit 0
+}
 
 # cleanrun mode enables Clean internally
 if ($Mode -eq "cleanrun") {

@@ -16,6 +16,7 @@ logs/steps/*
 logs/phase_summary.json
 logs/last_run_summary.json
 logs/last_run_summary.txt
+logs/last_checkpoint.txt
 
 # Keep directory structure
 !workspace/generated/.gitkeep

@@ -7,7 +7,9 @@ TOS orchestrator launcher
 ### usage
 
 ```
-usage cc_run.ps1 -Mode run|test|cleanrun -Clean -SummaryFile path
+usage cc_run.ps1 -Mode run|test|cleanrun|checkpoint|rollback -Clean -SummaryFile path
+  checkpoint: -CheckpointName <text>
+  rollback: -TargetCommit <hash> (optional, uses last_checkpoint.txt if not specified)
 ```
 
 ### run mode
@@ -33,6 +35,36 @@ cleanup then orchestrator execution
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode cleanrun
 ```
+
+### checkpoint mode
+
+create a git checkpoint commit
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S4_before_big_change
+```
+
+- creates commit with message "CHECKPOINT <name>"
+- saves commit hash to logs/last_checkpoint.txt
+- output: checkpoint <hash>
+
+### rollback mode
+
+rollback to a previous checkpoint
+
+```powershell
+# rollback to last checkpoint
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
+
+# rollback to specific commit
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback -TargetCommit abc1234
+```
+
+- requires clean working tree (no uncommitted changes)
+- if -TargetCommit not specified, uses logs/last_checkpoint.txt
+- runs git fetch, git reset --hard, git clean -fd
+- auto runs test mode after rollback
+- output: rollback <hash>
 
 ### SummaryFile option
 
@@ -164,3 +196,39 @@ list of keywords that trigger command denial
 ```
 
 This allows the orchestrator to skip denied commands and continue with subsequent steps.
+
+## checkpoint and rollback
+
+### checkpoint naming convention
+
+use prefix CHECKPOINT_S4_ for sprint 4 checkpoints
+
+examples:
+- CHECKPOINT_S4_before_big_change
+- CHECKPOINT_S4_api_integration
+- CHECKPOINT_S4_rollback_ready
+
+### last_checkpoint.txt
+
+- location: logs/last_checkpoint.txt
+- contains the commit hash of the last checkpoint
+- created automatically by checkpoint mode
+- used by rollback mode when -TargetCommit is not specified
+- ignored by git (.gitignore)
+
+### example workflow
+
+```powershell
+# 1. create checkpoint before risky change
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S4_before_big_change
+
+# 2. make changes and test
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
+
+# 3a. if test passed, continue working
+# 3b. if test failed, rollback to last checkpoint
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
+
+# or rollback to specific commit
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback -TargetCommit abc1234
+```
