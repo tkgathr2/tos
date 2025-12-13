@@ -8,7 +8,14 @@
     "job_loop": {
       "enabled": true,
       "max_jobs": 3,
-      "job_name": "sample"
+      "job_name": "sample",
+      "job_input": {
+        "path": "workspace/artifacts/job_input.json",
+        "required": false
+      },
+      "job_result": {
+        "path": "workspace/artifacts/job_result.json"
+      }
     }
   },
   "openai_model": "gpt-4o-mini",
@@ -54,7 +61,7 @@
     "Stop-Service",
     "Remove-Service"
   ],
-  "draft_prompt_template": "あなたはタスク実行AIです。以下の目標を達成するためのコマンドを生成してください。\n\n目標: workspace/results/result_v2.txt に集計結果を出力する\n条件:\n- result_v2.txt には「合計:」「平均:」「件数:」の3つのキーワードを含めること\n- PowerShellコマンドで実行可能な形式で出力すること\n- ファイル出力には Set-Content を使用すること（Out-File は使わない）\n- エンコーディングは UTF8 を指定すること\n\nステップ: {step_num}\nこれまでの履歴: {history_json}\n\n以下のJSON形式のみで応答してください。説明文は不要です。\n{\n  \"thought\": \"この行動の理由\",\n  \"commands\": [\n    {\n      \"type\": \"powershell\",\n      \"code\": \"実行するPowerShellコード\"\n    }\n  ]\n}",
+  "draft_prompt_template": "あなたはタスク実行AIです。以下の目標を達成するためのコマンドを生成してください。\n\n目標: workspace/results/result_v2.txt に集計結果を出力する\n条件:\n- result_v2.txt には「合計:」「平均:」「件数:」の3つのキーワードを含めること\n- PowerShellコマンドで実行可能な形式で出力すること\n- ファイル出力には Set-Content を使用すること（Out-File は使わない）\n- エンコーディングは UTF8 を指定すること\n\nステップ: {step_num}\nこれまでの履歴: {history_json}\njob_payload: {job_payload_json}\n\n以下のJSON形式のみで応答してください。説明文は不要です。\n{\n  \"thought\": \"この行動の理由\",\n  \"commands\": [\n    {\n      \"type\": \"powershell\",\n      \"code\": \"実行するPowerShellコード\"\n    }\n  ]\n}",
   "review_prompt_template": "あなたはコードレビュアーです。以下のドラフトをレビューし、改善してください。\n\nドラフト:\n{draft_json}\n\nステップ: {step_num}\n\nレビュー観点:\n1. コマンドが安全か（危険なコマンドがないか）\n2. 目標を達成できるか\n3. ファイル出力には Set-Content -Encoding UTF8 を使うこと（Out-File は使わない）\n\n以下のJSON形式のみで応答してください。説明文は不要です。\n{\n  \"review\": \"レビューコメント\",\n  \"improved_commands\": [\n    {\n      \"type\": \"powershell\",\n      \"code\": \"改善後のコード\"\n    }\n  ],\n  \"approval\": true\n}",
   "final_prompt_template": "あなたは最終判断AIです。ドラフトとレビューを踏まえて、実行する最終コマンドを決定してください。\n\nドラフト:\n{draft_json}\n\nレビュー:\n{review_json}\n\nステップ: {step_num}\n\n以下のJSON形式のみで応答してください。説明文は不要です。\n{\n  \"final_commands\": [\n    {\n      \"type\": \"powershell\",\n      \"code\": \"最終的に実行するコード\"\n    }\n  ],\n  \"summary\": \"このステップで行ったことの要約\"\n}"
 }

@@ -26,6 +26,19 @@
 - phase_summary includes job_loop_enabled and job_loop object
 - Updated runbook.md with job_loop documentation
 
+### S-5 job payload
+
+- Added job_input configuration to s5_settings.job_loop
+- job_input.json allows external payload input (workspace/artifacts/job_input.json)
+- job_payload is passed to draft_prompt as {job_payload_json} template variable
+- job_name in job_input.json overrides config job_name
+- job_payload is saved in step_log (sanitized, max 2000 chars)
+- Added job_result configuration to s5_settings.job_loop
+- job_result.json is output on job_loop_complete (workspace/artifacts/job_result.json)
+- cc_run.ps1 cleanrun deletes job_result.json
+- cc_run.ps1 test/run mode displays job_result.json exists status
+- Updated runbook.md with job payload documentation
+
 ## S-4 Changes
 
 - Added run/test/cleanrun/checkpoint/rollback modes to cc_run.ps1

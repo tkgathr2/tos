@@ -194,6 +194,11 @@ if ($Clean) {
   if (Test-Path $phaseState) {
     Remove-Item -Path $phaseState -Force
   }
+  # KL: Delete job_result.json
+  $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
+  if (Test-Path $jobResultPath) {
+    Remove-Item -Path $jobResultPath -Force
+  }
   Write-Host "cleanup done"
 }
 
@@ -334,6 +339,13 @@ if ($Mode -eq "test") {
     # JJ: job_loop_complete is treated as passed
     if ($state.current_phase -eq "job_loop_complete") {
       Write-Host "job_loop_complete: $($state.last_done_reason)"
+      # KJ: Check job_result.json exists
+      $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
+      if (Test-Path $jobResultPath) {
+        Write-Host "job_result.json exists"
+      } else {
+        Write-Host "WARNING: job_result.json not found"
+      }
     }
   }
 
@@ -424,6 +436,13 @@ if (Test-Path $phaseState) {
     Write-Host "job_loop_complete $($state.last_done_reason)"
     if ($state.job_index) {
       Write-Host "job_index $($state.job_index)"
+    }
+    # KJ: Check job_result.json exists
+    $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
+    if (Test-Path $jobResultPath) {
+      Write-Host "job_result.json exists"
+    } else {
+      Write-Host "WARNING: job_result.json not found"
     }
   }
 } else {

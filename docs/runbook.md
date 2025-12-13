@@ -429,6 +429,89 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - deny: command was denied
 - fatal_error: API or system error
 
+## S-5 job payload
+
+job_input.json allows external input to be passed to the orchestrator.
+job_result.json is output when job_loop_complete.
+
+### job_input configuration
+
+```json
+"s5_settings": {
+  "job_loop": {
+    "enabled": true,
+    "max_jobs": 3,
+    "job_name": "sample",
+    "job_input": {
+      "path": "workspace/artifacts/job_input.json",
+      "required": false
+    },
+    "job_result": {
+      "path": "workspace/artifacts/job_result.json"
+    }
+  }
+}
+```
+
+### job_input.json specification
+
+- path: workspace/artifacts/job_input.json (configurable)
+- required: false (if file not found, execution continues without payload)
+- format: JSON object
+
+example:
+```json
+{
+  "job_name": "custom_job",
+  "target": "some_target",
+  "params": {
+    "key1": "value1"
+  }
+}
+```
+
+- job_name: overrides config job_name if specified
+- other fields: passed to draft_prompt as {job_payload_json}
+
+### job_result.json specification
+
+- path: workspace/artifacts/job_result.json (configurable)
+- output: created when job_loop_complete
+- format: JSON object
+
+example:
+```json
+{
+  "job_name": "sample",
+  "max_jobs": 3,
+  "jobs_executed": 3,
+  "end_reason": "job_loop_complete: max_jobs(3)に到達",
+  "last_phase": "job_loop_complete",
+  "last_step": 1,
+  "timestamp": "2025-12-13T23:19:06.517283"
+}
+```
+
+fields:
+- job_name: job name (from config or job_input override)
+- max_jobs: configured max_jobs value
+- jobs_executed: actual number of jobs executed (max_jobs)
+- end_reason: reason for job_loop completion
+- last_phase: phase when job_loop ended
+- last_step: step number when job_loop ended
+- timestamp: ISO format timestamp
+
+### step_log job_payload field
+
+- job_payload is saved in step_log (sanitized, max 2000 chars)
+- truncated payloads end with "...(truncated)"
+
+### cc_run.ps1 job_result handling
+
+- cleanrun mode: deletes job_result.json
+- test mode: checks job_result.json exists when job_loop_complete
+- run mode: displays job_result.json exists status when job_loop_complete
+
 ### S-5 completion checklist
 
 - [ ] experimental mode displays correctly

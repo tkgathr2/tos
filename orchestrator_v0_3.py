@@ -319,6 +319,7 @@ def build_step_log_data(
     job_loop_enabled: bool = False,
     job_name: str = None,
     job_index: int = None,
+    job_payload: dict = None,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -330,6 +331,15 @@ def build_step_log_data(
 
     全てのキーを必ず含め、欠損キーを防ぐ
     """
+    # KD: job_payload を sanitize (最大2000文字)
+    sanitized_job_payload = None
+    if job_payload is not None:
+        payload_str = json.dumps(job_payload, ensure_ascii=False)
+        if len(payload_str) > 2000:
+            sanitized_job_payload = payload_str[:2000] + "...(truncated)"
+        else:
+            sanitized_job_payload = payload_str
+
     return {
         "phase": phase,
         "step_num": step_num,
@@ -344,6 +354,7 @@ def build_step_log_data(
         "job_loop_enabled": job_loop_enabled,
         "job_name": job_name,
         "job_index": job_index,
+        "job_payload": sanitized_job_payload,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -393,7 +404,7 @@ def write_step_log(config: dict, step_num: int, data: dict) -> Path:
     return log_file
 
 
-def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> tuple:
+def make_draft(config: dict, step_num: int, context: dict, openai_key: str, job_payload: dict = None) -> tuple:
     """ChatGPT APIでドラフト生成
 
     Returns:
@@ -408,6 +419,10 @@ def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> t
     history_json = json.dumps(context.get("history", []), ensure_ascii=False)
     prompt = template.replace("{step_num}", str(step_num))
     prompt = prompt.replace("{history_json}", history_json)
+
+    # KE: job_payload を渡す
+    job_payload_json = json.dumps(job_payload, ensure_ascii=False) if job_payload else "null"
+    prompt = prompt.replace("{job_payload_json}", job_payload_json)
 
     prompt_info = {
         "template_name": template_name,
@@ -755,6 +770,46 @@ def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     return text
 
 
+def write_job_result(config: dict, job_name: str, max_jobs: int, jobs_executed: int,
+                     end_reason: str, last_phase: str, last_step: int) -> Path:
+    """KH-KI: job_loop_complete 時に job_result.json を出力する
+
+    Args:
+        config: 設定dict
+        job_name: ジョブ名
+        max_jobs: 最大ジョブ数
+        jobs_executed: 実行済みジョブ数
+        end_reason: 終了理由
+        last_phase: 最終フェーズ
+        last_step: 最終ステップ
+
+    Returns:
+        Path: 出力ファイルのパス
+    """
+    s5_settings = config.get("s5_settings", {})
+    job_loop_settings = s5_settings.get("job_loop", {})
+    job_result_settings = job_loop_settings.get("job_result", {})
+    job_result_path = job_result_settings.get("path", "workspace/artifacts/job_result.json")
+
+    result_file = BASE_DIR / job_result_path
+
+    result = {
+        "job_name": job_name,
+        "max_jobs": max_jobs,
+        "jobs_executed": jobs_executed,
+        "end_reason": end_reason,
+        "last_phase": last_phase,
+        "last_step": last_step,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    with open(result_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    print(f"job_result 出力: {result_file}")
+    return result_file
+
+
 def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
 
@@ -987,6 +1042,28 @@ def main():
     job_loop_max_jobs = job_loop_settings.get("max_jobs", 1)
     job_loop_job_name = job_loop_settings.get("job_name", "default")
 
+    # KC: job_payload 読み込み
+    job_payload = None
+    if job_loop_enabled:
+        job_input_settings = job_loop_settings.get("job_input", {})
+        job_input_path = job_input_settings.get("path", "")
+        if job_input_path:
+            job_input_file = BASE_DIR / job_input_path
+            if job_input_file.exists():
+                try:
+                    with open(job_input_file, "r", encoding="utf-8") as f:
+                        job_payload = json.load(f)
+                    print(f"job_payload 読み込み完了: {job_input_file}")
+                except Exception as e:
+                    print(f"job_payload 読み込みエラー: {e}")
+            else:
+                print(f"job_input.json が存在しません: {job_input_file}")
+
+        # KG: job_payload に job_name があれば上書き
+        if job_payload and job_payload.get("job_name"):
+            job_loop_job_name = job_payload.get("job_name")
+            print(f"job_name を上書き: {job_loop_job_name}")
+
     # JC: job_index 初期化（job_loop.enabled=true の場合のみ有効）
     # phase_stateからjob_indexを復元、なければ1から開始
     job_index = None
@@ -1016,6 +1093,16 @@ def main():
                 "completed": True
             }
             write_phase_summary(config, [], {}, f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達", job_loop_complete_info)
+            # KH-KI: job_result.json を出力
+            write_job_result(
+                config=config,
+                job_name=job_loop_job_name,
+                max_jobs=job_loop_max_jobs,
+                jobs_executed=job_loop_max_jobs,
+                end_reason=f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
+                last_phase="job_loop_complete",
+                last_step=start_step
+            )
             print(f"TOS v0.3 Orchestrator 終了 (job_loop_complete)")
             sys.exit(0)
 
@@ -1061,6 +1148,7 @@ def main():
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
                 job_index=job_index,
+                job_payload=job_payload,
                 next_phase_name=phase_result["next_phase_name"],
                 next_phase_done_condition=phase_result["next_phase_done_condition"],
                 next_instruction_id=phase_result["next_instruction_id"],
@@ -1097,7 +1185,7 @@ def main():
             break
 
         # API呼び出し: draft (ChatGPT)
-        draft_raw, draft, draft_prompt_info = make_draft(config, step_num, context, openai_key)
+        draft_raw, draft, draft_prompt_info = make_draft(config, step_num, context, openai_key, job_payload)
         if draft is None:
             print("draft生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
@@ -1113,6 +1201,7 @@ def main():
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
                 job_index=job_index,
+                job_payload=job_payload,
                 prompts_used={"draft": draft_prompt_info},
                 draft_raw=sanitize_for_log(draft_raw)
             )
@@ -1145,6 +1234,7 @@ def main():
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
                 job_index=job_index,
+                job_payload=job_payload,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
                 draft=draft,
                 review_raw=sanitize_for_log(review_raw)
@@ -1178,6 +1268,7 @@ def main():
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
                 job_index=job_index,
+                job_payload=job_payload,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
                 draft=draft,
                 review=review,
@@ -1252,7 +1343,8 @@ def main():
                 s5_flag=s5_flag,
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
-                job_index=job_index
+                job_index=job_index,
+                job_payload=job_payload
             )
             write_step_log(config, step_num, step_data)
 
@@ -1322,7 +1414,8 @@ def main():
                 s5_flag=s5_flag,
                 job_loop_enabled=job_loop_enabled,
                 job_name=job_loop_job_name,
-                job_index=job_index
+                job_index=job_index,
+                job_payload=job_payload
             )
             write_step_log(config, step_num, step_data)
 
@@ -1354,7 +1447,8 @@ def main():
             s5_flag=s5_flag,
             job_loop_enabled=job_loop_enabled,
             job_name=job_loop_job_name,
-            job_index=job_index
+            job_index=job_index,
+            job_payload=job_payload
         )
         write_step_log(config, max_steps + 1, step_data)
         # フェーズ状態を保存（max_steps到達）
