@@ -25,12 +25,12 @@ TOS_PYTHON_PATH_FILE = BASE_DIR / "tos_python_path.txt"
 def load_config() -> dict:
     """設定ファイルを読み込む"""
     if not CONFIG_FILE.exists():
-        print(f"[ERROR] 設定ファイルが見つかりません: {CONFIG_FILE}")
+        print(f"設定ファイルが見つかりません: {CONFIG_FILE}")
         sys.exit(1)
 
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         config = json.load(f)
-    print(f"[INFO] 設定ファイル読み込み完了: {CONFIG_FILE}")
+    print(f"設定ファイル読み込み完了: {CONFIG_FILE}")
     return config
 
 
@@ -48,7 +48,7 @@ def ensure_dirs(config: dict) -> None:
 
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
-    print(f"[INFO] ディレクトリ確認完了")
+    print("ディレクトリ確認完了")
 
 
 def get_phase_state_path(config: dict) -> Path:
@@ -70,10 +70,10 @@ def load_phase_state(config: dict) -> dict:
     try:
         with open(state_file, "r", encoding="utf-8") as f:
             state = json.load(f)
-        print(f"[INFO] フェーズ状態を復元: {state_file}")
+        print(f"フェーズ状態を復元: {state_file}")
         return state
     except Exception as e:
-        print(f"[WARN] フェーズ状態読み込みエラー: {e}")
+        print(f"フェーズ状態読み込みエラー: {e}")
         return None
 
 
@@ -107,7 +107,7 @@ def save_phase_state(config: dict, current_phase: str, current_step: int,
     with open(state_file, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
-    print(f"[INFO] フェーズ状態保存: {state_file}")
+    print(f"フェーズ状態保存: {state_file}")
     return state_file
 
 
@@ -135,10 +135,10 @@ def verify_python(python_path: str) -> bool:
             timeout=10
         )
         if result.returncode == 0:
-            print(f"[INFO] Python検証OK: {result.stdout.strip()}")
+            print(f"Python検証OK: {result.stdout.strip()}")
             return True
     except Exception as e:
-        print(f"[WARN] Python検証失敗: {e}")
+        print(f"Python検証失敗: {e}")
 
     return False
 
@@ -159,7 +159,7 @@ def parse_json_strict(text: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
-        print(f"[ERROR] JSONパース失敗: {e}")
+        print(f"JSONパース失敗: {e}")
         return None
 
 
@@ -197,9 +197,9 @@ def call_openai_api(config: dict, prompt: str, api_key: str, retry_count: int = 
         content = data["choices"][0]["message"]["content"]
         return content
     except requests.exceptions.RequestException as e:
-        print(f"[ERROR] OpenAI API呼び出し失敗: {e}")
+        print(f"OpenAI API呼び出し失敗: {e}")
         if retry_count < max_retries:
-            print(f"[INFO] リトライ {retry_count + 1}/{max_retries}")
+            print(f"リトライ {retry_count + 1}/{max_retries}")
             time.sleep(2 ** retry_count)
             return call_openai_api(config, prompt, api_key, retry_count + 1)
         return None
@@ -222,9 +222,9 @@ def call_anthropic_api(config: dict, prompt: str, api_key: str, retry_count: int
         content = message.content[0].text
         return content
     except Exception as e:
-        print(f"[ERROR] Anthropic API呼び出し失敗: {e}")
+        print(f"Anthropic API呼び出し失敗: {e}")
         if retry_count < max_retries:
-            print(f"[INFO] リトライ {retry_count + 1}/{max_retries}")
+            print(f"リトライ {retry_count + 1}/{max_retries}")
             time.sleep(2 ** retry_count)
             return call_anthropic_api(config, prompt, api_key, retry_count + 1)
         return None
@@ -241,7 +241,7 @@ def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: 
             raw_response = call_anthropic_api(config, prompt, api_key)
 
         if raw_response is None:
-            print("[ERROR] API呼び出しが失敗しました")
+            print("API呼び出しが失敗しました")
             return None, None
 
         parsed = parse_json_strict(raw_response)
@@ -249,13 +249,13 @@ def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: 
             return raw_response, parsed
 
         if attempt < max_json_retries:
-            print(f"[INFO] JSONパース失敗。再プロンプトでリトライ {attempt + 1}/{max_json_retries}")
+            print(f"JSONパース失敗。再プロンプトでリトライ {attempt + 1}/{max_json_retries}")
             prompt = f"""前回の応答がJSON形式ではありませんでした。
 必ず以下の形式で、JSONのみを返してください。説明文は不要です。
 
 {prompt}"""
 
-    print("[ERROR] JSONパースリトライ上限に達しました")
+    print("JSONパースリトライ上限に達しました")
     return raw_response, None
 
 
@@ -342,7 +342,7 @@ def write_step_log(config: dict, step_num: int, data: dict) -> Path:
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"[INFO] ステップログ出力: {log_file}")
+    print(f"ステップログ出力: {log_file}")
     return log_file
 
 
@@ -352,7 +352,7 @@ def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> t
     Returns:
         tuple: (raw_response, parsed_json, prompt_info)
     """
-    print(f"[API] make_draft called (step={step_num})")
+    print(f"ドラフト生成開始 (step={step_num})")
 
     template_name = "draft_prompt_template"
     template = config.get(template_name, "")
@@ -377,7 +377,7 @@ def review_plus(config: dict, step_num: int, draft: dict, context: dict, anthrop
     Returns:
         tuple: (raw_response, parsed_json, prompt_info)
     """
-    print(f"[API] review_plus called (step={step_num})")
+    print(f"レビュー開始 (step={step_num})")
 
     template_name = "review_prompt_template"
     template = config.get(template_name, "")
@@ -402,7 +402,7 @@ def make_final(config: dict, step_num: int, draft: dict, review: dict, openai_ke
     Returns:
         tuple: (raw_response, parsed_json, prompt_info)
     """
-    print(f"[API] make_final called (step={step_num})")
+    print(f"最終決定開始 (step={step_num})")
 
     template_name = "final_prompt_template"
     template = config.get(template_name, "")
@@ -456,7 +456,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
         allowed, reason, matched_pattern = check_allowlist(config, cmd_type, code)
 
         if not allowed:
-            print(f"[DENY] コマンド拒否: {reason}")
+            print(f"コマンド拒否: {reason}")
             results.append({
                 "type": cmd_type,
                 "code": code[:200] + "..." if len(code) > 200 else code,
@@ -467,7 +467,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
             })
             continue
 
-        print(f"[ALLOW] コマンド許可: {reason}")
+        print(f"コマンド許可: {reason}")
 
         if cmd_type == "powershell":
             try:
@@ -489,7 +489,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
                     "stderr": result.stderr[:1000] if result.stderr else "",
                     "timeout": False
                 })
-                print(f"[INFO] PowerShell実行完了 (rc={result.returncode})")
+                print(f"PowerShell実行完了 (rc={result.returncode})")
             except subprocess.TimeoutExpired:
                 results.append({
                     "type": cmd_type,
@@ -500,7 +500,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
                     "timeout": True,
                     "error": f"タイムアウト ({timeout_sec}秒)"
                 })
-                print(f"[ERROR] PowerShell タイムアウト ({timeout_sec}秒)")
+                print(f"PowerShellタイムアウト ({timeout_sec}秒)")
             except Exception as e:
                 results.append({
                     "type": cmd_type,
@@ -510,7 +510,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
                     "executed": False,
                     "error": str(e)
                 })
-                print(f"[ERROR] PowerShell実行失敗: {e}")
+                print(f"PowerShell実行失敗: {e}")
 
     return {"command_results": results}
 
@@ -525,7 +525,7 @@ def evaluate_done_minimal(config: dict) -> bool:
     result_file = BASE_DIR / config["workspace_dir"] / "results" / "result_v2.txt"
 
     if not result_file.exists():
-        print(f"[INFO] done判定: result_v2.txt が存在しない -> False")
+        print("done判定: result_v2.txt が存在しない")
         return False
 
     try:
@@ -540,21 +540,21 @@ def evaluate_done_minimal(config: dict) -> bool:
                 continue
 
         if content is None:
-            print("[ERROR] done判定: ファイルのエンコードを判別できませんでした")
+            print("done判定: ファイルのエンコードを判別できませんでした")
             return False
 
         required = ["合計:", "平均:", "件数:"]
         missing = [r for r in required if r not in content]
 
         if missing:
-            print(f"[INFO] done判定: 必須キーワード不足 {missing} -> False")
+            print(f"done判定: 必須キーワード不足 {missing}")
             return False
 
-        print(f"[INFO] done判定: 全条件クリア -> True")
+        print("done判定: 全条件クリア")
         return True
 
     except Exception as e:
-        print(f"[ERROR] done判定エラー: {e}")
+        print(f"done判定エラー: {e}")
         return False
 
 
@@ -670,7 +670,7 @@ def write_phase_summary(config: dict, skipped_steps: list = None) -> Path:
                         "next_instruction_expected_outputs": step_data.get("next_instruction_expected_outputs")
                     }
         except Exception as e:
-            print(f"[WARN] ステップログ読み込みエラー: {step_file} - {e}")
+            print(f"ステップログ読み込みエラー: {step_file} - {e}")
 
     # サマリを構築
     summary = {
@@ -689,14 +689,12 @@ def write_phase_summary(config: dict, skipped_steps: list = None) -> Path:
     with open(summary_file, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"[INFO] フェーズサマリ出力: {summary_file}")
+    print(f"フェーズサマリ出力: {summary_file}")
     return summary_file
 
 
 def main():
-    print("=" * 60)
-    print("TOS v0.3 Orchestrator - S-2 API接続版")
-    print("=" * 60)
+    print("TOS v0.3 Orchestrator 開始")
 
     # 1. 設定読み込み
     config = load_config()
@@ -709,22 +707,20 @@ def main():
     if phase_state:
         start_step = phase_state.get("current_step", 1)
         if phase_state.get("last_done"):
-            print(f"[INFO] 前回完了済み (step={start_step})。新規開始します。")
+            print(f"前回完了済み (step={start_step})。新規開始します。")
             start_step = 1
         else:
-            print(f"[INFO] 前回の状態から復帰: step={start_step}")
+            print(f"前回の状態から復帰: step={start_step}")
     else:
         start_step = 1
-        print("[INFO] 新規開始")
+        print("新規開始")
 
     # 4. Python パス確認（tos_python_path.txt）
     python_path = load_tos_python_path()
 
     if python_path is None:
         print("")
-        print("=" * 60)
-        print("[STOP] tos_python_path.txt が見つかりません")
-        print("=" * 60)
+        print("tos_python_path.txt が見つかりません")
         print("")
         print("以下のファイルを作成してください:")
         print(f"  {TOS_PYTHON_PATH_FILE}")
@@ -735,21 +731,17 @@ def main():
         print("Pythonのパスが分からない場合は、コマンドプロンプトで")
         print("  where python")
         print("を実行して確認してください。")
-        print("=" * 60)
         sys.exit(1)
 
     # 5. Python 検証
     if not verify_python(python_path):
         print("")
-        print("=" * 60)
-        print(f"[STOP] Python実行ファイルが無効です: {python_path}")
-        print("=" * 60)
+        print(f"Python実行ファイルが無効です: {python_path}")
         print("")
         print(f"tos_python_path.txt の内容を確認してください:")
         print(f"  {TOS_PYTHON_PATH_FILE}")
         print("")
         print("正しい Python パスに修正してください。")
-        print("=" * 60)
         sys.exit(1)
 
     # 6. APIキー確認
@@ -757,19 +749,15 @@ def main():
 
     if not openai_key:
         print("")
-        print("=" * 60)
-        print("[STOP] OPENAI_API_KEY 環境変数が設定されていません")
-        print("=" * 60)
+        print("OPENAI_API_KEY 環境変数が設定されていません")
         sys.exit(1)
 
     if not anthropic_key:
         print("")
-        print("=" * 60)
-        print("[STOP] ANTHROPIC_API_KEY 環境変数が設定されていません")
-        print("=" * 60)
+        print("ANTHROPIC_API_KEY 環境変数が設定されていません")
         sys.exit(1)
 
-    print("[INFO] APIキー確認完了")
+    print("APIキー確認完了")
 
     # 7. メインループ
     max_steps = config.get("max_steps", 8)
@@ -778,12 +766,12 @@ def main():
 
     for step_num in range(start_step, max_steps + 1):
         print("")
-        print(f"--- Step {step_num}/{max_steps} ---")
+        print(f"Step {step_num}/{max_steps}")
 
         # 重複実行チェック（ステップログが既に存在する場合はスキップ）
         if step_log_exists(config, step_num):
             skip_reason = f"step_{step_num:03d}.json が既に存在するためスキップ"
-            print(f"[SKIP] {skip_reason}")
+            print(skip_reason)
             skipped_steps.append({
                 "step_num": step_num,
                 "skip_reason": skip_reason
@@ -793,7 +781,7 @@ def main():
         # フェーズ完了判定（ループ先頭）
         phase_result = evaluate_phase_done(config)
         if phase_result["done"]:
-            print(f"[INFO] done=True に到達。ループ終了。")
+            print("done=True に到達。ループ終了。")
             step_data = build_step_log_data(
                 phase="done",
                 step_num=step_num,
@@ -823,7 +811,7 @@ def main():
         # API呼び出し: draft (ChatGPT)
         draft_raw, draft, draft_prompt_info = make_draft(config, step_num, context, openai_key)
         if draft is None:
-            print("[ERROR] draft生成に失敗しました。処理を中断します。")
+            print("draft生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
                 phase="error",
                 step_num=step_num,
@@ -840,7 +828,7 @@ def main():
         # API呼び出し: review (Claude)
         review_raw, review, review_prompt_info = review_plus(config, step_num, draft, context, anthropic_key)
         if review is None:
-            print("[ERROR] review生成に失敗しました。処理を中断します。")
+            print("review生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
                 phase="error",
                 step_num=step_num,
@@ -858,7 +846,7 @@ def main():
         # API呼び出し: final (ChatGPT)
         final_raw, final, final_prompt_info = make_final(config, step_num, draft, review, openai_key)
         if final is None:
-            print("[ERROR] final生成に失敗しました。処理を中断します。")
+            print("final生成に失敗しました。処理を中断します。")
             step_data = build_step_log_data(
                 phase="error",
                 step_num=step_num,
@@ -932,7 +920,7 @@ def main():
         })
 
     else:
-        print(f"[WARN] max_steps ({max_steps}) に到達。done=False のまま終了。")
+        print(f"max_steps ({max_steps}) に到達。done=False のまま終了。")
         step_data = build_step_log_data(
             phase="max_steps_reached",
             step_num=max_steps + 1,
@@ -954,9 +942,7 @@ def main():
     write_phase_summary(config, skipped_steps)
 
     print("")
-    print("=" * 60)
     print("TOS v0.3 Orchestrator 終了")
-    print("=" * 60)
 
 
 if __name__ == "__main__":
