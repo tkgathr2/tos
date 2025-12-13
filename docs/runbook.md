@@ -266,3 +266,28 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 ```
 
 5. test runs automatically after rollback and should pass
+
+## S-4 completion criteria
+
+- run/test/cleanrun/checkpoint/rollback modes work correctly
+- deny/fatal_error/stopped states are distinguishable
+- SummaryFile outputs both JSON and TXT formats
+
+## representative commands
+
+```powershell
+# run mode
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
+
+# test mode
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
+
+# cleanrun mode
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode cleanrun
+
+# checkpoint mode
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S4_example
+
+# rollback mode
+powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
+```
