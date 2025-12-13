@@ -215,95 +215,80 @@ def write_step_log(config: dict, step_num: int, data: dict) -> Path:
 
 
 def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> tuple:
-    """ChatGPT APIでドラフト生成"""
+    """ChatGPT APIでドラフト生成
+
+    Returns:
+        tuple: (raw_response, parsed_json, prompt_info)
+    """
     print(f"[API] make_draft called (step={step_num})")
 
-    prompt = f"""あなたはタスク実行AIです。以下の目標を達成するためのコマンドを生成してください。
+    template_name = "draft_prompt_template"
+    template = config.get(template_name, "")
 
-目標: workspace/results/result_v2.txt に集計結果を出力する
-条件:
-- result_v2.txt には「合計:」「平均:」「件数:」の3つのキーワードを含めること
-- PowerShellコマンドで実行可能な形式で出力すること
-- ファイル出力には Set-Content を使用すること（Out-File は使わない）
-- エンコーディングは UTF8 を指定すること
+    # テンプレート変数を置換
+    history_json = json.dumps(context.get("history", []), ensure_ascii=False)
+    prompt = template.replace("{step_num}", str(step_num))
+    prompt = prompt.replace("{history_json}", history_json)
 
-ステップ: {step_num}
-これまでの履歴: {json.dumps(context.get("history", []), ensure_ascii=False)}
-
-以下のJSON形式のみで応答してください。説明文は不要です。
-{{
-  "thought": "この行動の理由",
-  "commands": [
-    {{
-      "type": "powershell",
-      "code": "実行するPowerShellコード"
-    }}
-  ]
-}}"""
+    prompt_info = {
+        "template_name": template_name,
+        "prompt": sanitize_for_log(prompt, 500)
+    }
 
     raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
-    return raw, parsed
+    return raw, parsed, prompt_info
 
 
 def review_plus(config: dict, step_num: int, draft: dict, context: dict, anthropic_key: str) -> tuple:
-    """Claude APIでレビューと改善"""
+    """Claude APIでレビューと改善
+
+    Returns:
+        tuple: (raw_response, parsed_json, prompt_info)
+    """
     print(f"[API] review_plus called (step={step_num})")
 
-    prompt = f"""あなたはコードレビュアーです。以下のドラフトをレビューし、改善してください。
+    template_name = "review_prompt_template"
+    template = config.get(template_name, "")
 
-ドラフト:
-{json.dumps(draft, ensure_ascii=False, indent=2)}
+    # テンプレート変数を置換
+    draft_json = json.dumps(draft, ensure_ascii=False, indent=2)
+    prompt = template.replace("{step_num}", str(step_num))
+    prompt = prompt.replace("{draft_json}", draft_json)
 
-ステップ: {step_num}
-
-レビュー観点:
-1. コマンドが安全か（危険なコマンドがないか）
-2. 目標を達成できるか
-3. ファイル出力には Set-Content -Encoding UTF8 を使うこと（Out-File は使わない）
-
-以下のJSON形式のみで応答してください。説明文は不要です。
-{{
-  "review": "レビューコメント",
-  "improved_commands": [
-    {{
-      "type": "powershell",
-      "code": "改善後のコード"
-    }}
-  ],
-  "approval": true
-}}"""
+    prompt_info = {
+        "template_name": template_name,
+        "prompt": sanitize_for_log(prompt, 500)
+    }
 
     raw, parsed = call_api_with_json_retry(config, prompt, anthropic_key, "anthropic")
-    return raw, parsed
+    return raw, parsed, prompt_info
 
 
 def make_final(config: dict, step_num: int, draft: dict, review: dict, openai_key: str) -> tuple:
-    """ChatGPT APIで最終決定"""
+    """ChatGPT APIで最終決定
+
+    Returns:
+        tuple: (raw_response, parsed_json, prompt_info)
+    """
     print(f"[API] make_final called (step={step_num})")
 
-    prompt = f"""あなたは最終判断AIです。ドラフトとレビューを踏まえて、実行する最終コマンドを決定してください。
+    template_name = "final_prompt_template"
+    template = config.get(template_name, "")
 
-ドラフト:
-{json.dumps(draft, ensure_ascii=False, indent=2)}
+    # テンプレート変数を置換
+    draft_json = json.dumps(draft, ensure_ascii=False, indent=2)
+    review_json = json.dumps(review, ensure_ascii=False, indent=2)
+    prompt = template.replace("{step_num}", str(step_num))
+    prompt = prompt.replace("{draft_json}", draft_json)
+    prompt = prompt.replace("{review_json}", review_json)
 
-レビュー:
-{json.dumps(review, ensure_ascii=False, indent=2)}
-
-ステップ: {step_num}
-
-以下のJSON形式のみで応答してください。説明文は不要です。
-{{
-  "final_commands": [
-    {{
-      "type": "powershell",
-      "code": "最終的に実行するコード"
-    }}
-  ],
-  "summary": "このステップで行ったことの要約"
-}}"""
+    prompt_info = {
+        "template_name": template_name,
+        "prompt": sanitize_for_log(prompt, 500)
+    }
 
     raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
-    return raw, parsed
+    return raw, parsed, prompt_info
 
 
 def check_allowlist(config: dict, cmd_type: str, code: str) -> tuple:
@@ -537,12 +522,13 @@ def main():
             break
 
         # API呼び出し: draft (ChatGPT)
-        draft_raw, draft = make_draft(config, step_num, context, openai_key)
+        draft_raw, draft, draft_prompt_info = make_draft(config, step_num, context, openai_key)
         if draft is None:
             print("[ERROR] draft生成に失敗しました。処理を中断します。")
             write_step_log(config, step_num, {
                 "phase": "error",
                 "error": "draft生成失敗",
+                "draft_prompt_info": draft_prompt_info,
                 "draft_raw": sanitize_for_log(draft_raw),
                 "done": False,
                 "done_reason": "API呼び出しまたはJSONパース失敗"
@@ -550,13 +536,14 @@ def main():
             sys.exit(1)
 
         # API呼び出し: review (Claude)
-        review_raw, review = review_plus(config, step_num, draft, context, anthropic_key)
+        review_raw, review, review_prompt_info = review_plus(config, step_num, draft, context, anthropic_key)
         if review is None:
             print("[ERROR] review生成に失敗しました。処理を中断します。")
             write_step_log(config, step_num, {
                 "phase": "error",
                 "error": "review生成失敗",
                 "draft": draft,
+                "review_prompt_info": review_prompt_info,
                 "review_raw": sanitize_for_log(review_raw),
                 "done": False,
                 "done_reason": "API呼び出しまたはJSONパース失敗"
@@ -564,7 +551,7 @@ def main():
             sys.exit(1)
 
         # API呼び出し: final (ChatGPT)
-        final_raw, final = make_final(config, step_num, draft, review, openai_key)
+        final_raw, final, final_prompt_info = make_final(config, step_num, draft, review, openai_key)
         if final is None:
             print("[ERROR] final生成に失敗しました。処理を中断します。")
             write_step_log(config, step_num, {
@@ -572,6 +559,7 @@ def main():
                 "error": "final生成失敗",
                 "draft": draft,
                 "review": review,
+                "final_prompt_info": final_prompt_info,
                 "final_raw": sanitize_for_log(final_raw),
                 "done": False,
                 "done_reason": "API呼び出しまたはJSONパース失敗"
@@ -602,6 +590,11 @@ def main():
                 "draft": config.get("openai_model"),
                 "review": config.get("anthropic_model"),
                 "final": config.get("openai_model")
+            },
+            "prompts_used": {
+                "draft": draft_prompt_info,
+                "review": review_prompt_info,
+                "final": final_prompt_info
             },
             "final_commands": commands,
             "allowlist_summary": allowlist_summary,
