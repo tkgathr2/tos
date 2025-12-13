@@ -6,5 +6,28 @@
   "json_retry": 2,
   "timeout_sec": 120,
   "workspace_dir": "workspace",
-  "logs_dir": "logs"
+  "logs_dir": "logs",
+  "allow_types": ["powershell"],
+  "deny_patterns": [
+    "Remove-Item.*-Recurse",
+    "rmdir.*/s",
+    "del.*/f",
+    "format ",
+    "shutdown",
+    "reg add",
+    "reg delete",
+    "sc create",
+    "sc delete",
+    "net user",
+    "net localgroup",
+    "Invoke-WebRequest",
+    "Invoke-RestMethod",
+    "curl ",
+    "wget ",
+    "Start-Process",
+    "Set-ExecutionPolicy",
+    "New-Service",
+    "Stop-Service",
+    "Remove-Service"
+  ]
 }

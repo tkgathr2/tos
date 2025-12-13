@@ -304,14 +304,50 @@ def make_final(config: dict, step_num: int, draft: dict, review: dict, openai_ke
     return raw, parsed
 
 
+def check_allowlist(config: dict, cmd_type: str, code: str) -> tuple:
+    """コマンドがallowlistを通過するか判定する
+
+    Returns:
+        tuple: (allowed: bool, reason: str)
+    """
+    # 1. type チェック
+    allow_types = config.get("allow_types", ["powershell"])
+    if cmd_type not in allow_types:
+        return False, f"type '{cmd_type}' は許可されていない (allow_types: {allow_types})"
+
+    # 2. deny_patterns チェック
+    deny_patterns = config.get("deny_patterns", [])
+    for pattern in deny_patterns:
+        if re.search(pattern, code, re.IGNORECASE):
+            return False, f"禁止パターン '{pattern}' に一致"
+
+    return True, "allowlist通過"
+
+
 def run_commands(config: dict, commands: list, python_path: str) -> dict:
-    """コマンドを実行"""
+    """コマンドを実行（allowlist判定付き）"""
     results = []
-    workspace_dir = BASE_DIR / config["workspace_dir"]
+    timeout_sec = config.get("timeout_sec", 120)
 
     for cmd in commands:
         cmd_type = cmd.get("type", "")
         code = cmd.get("code", "")
+
+        # allowlist判定
+        allowed, reason = check_allowlist(config, cmd_type, code)
+
+        if not allowed:
+            print(f"[DENY] コマンド拒否: {reason}")
+            results.append({
+                "type": cmd_type,
+                "code": code[:200] + "..." if len(code) > 200 else code,
+                "allowed": False,
+                "deny_reason": reason,
+                "executed": False
+            })
+            continue
+
+        print(f"[ALLOW] コマンド許可: {reason}")
 
         if cmd_type == "powershell":
             try:
@@ -319,45 +355,42 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
                     ["powershell", "-Command", code],
                     capture_output=True,
                     text=True,
-                    timeout=config.get("timeout_sec", 120),
+                    timeout=timeout_sec,
                     cwd=str(BASE_DIR)
                 )
                 results.append({
                     "type": cmd_type,
+                    "code": code[:500] + "..." if len(code) > 500 else code,
+                    "allowed": True,
+                    "allow_reason": reason,
+                    "executed": True,
                     "returncode": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr
+                    "stdout": result.stdout[:1000] if result.stdout else "",
+                    "stderr": result.stderr[:1000] if result.stderr else "",
+                    "timeout": False
                 })
                 print(f"[INFO] PowerShell実行完了 (rc={result.returncode})")
+            except subprocess.TimeoutExpired:
+                results.append({
+                    "type": cmd_type,
+                    "code": code[:500] + "..." if len(code) > 500 else code,
+                    "allowed": True,
+                    "allow_reason": reason,
+                    "executed": True,
+                    "timeout": True,
+                    "error": f"タイムアウト ({timeout_sec}秒)"
+                })
+                print(f"[ERROR] PowerShell タイムアウト ({timeout_sec}秒)")
             except Exception as e:
                 results.append({
                     "type": cmd_type,
+                    "code": code[:500] + "..." if len(code) > 500 else code,
+                    "allowed": True,
+                    "allow_reason": reason,
+                    "executed": False,
                     "error": str(e)
                 })
                 print(f"[ERROR] PowerShell実行失敗: {e}")
-
-        elif cmd_type == "python":
-            try:
-                result = subprocess.run(
-                    [python_path, "-c", code],
-                    capture_output=True,
-                    text=True,
-                    timeout=config.get("timeout_sec", 120),
-                    cwd=str(workspace_dir)
-                )
-                results.append({
-                    "type": cmd_type,
-                    "returncode": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr
-                })
-                print(f"[INFO] Python実行完了 (rc={result.returncode})")
-            except Exception as e:
-                results.append({
-                    "type": cmd_type,
-                    "error": str(e)
-                })
-                print(f"[ERROR] Python実行失敗: {e}")
 
     return {"command_results": results}
 
