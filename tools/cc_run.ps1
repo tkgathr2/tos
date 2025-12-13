@@ -213,6 +213,10 @@ $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
 if (Test-Path $phaseState) {
   $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
   Write-Host "phase_state phase=$($state.current_phase) step=$($state.current_step) done=$($state.last_done)"
+  # deny phase: show deny reason
+  if ($state.current_phase -eq "deny") {
+    Write-Host "deny $($state.last_done_reason)"
+  }
 } else {
   Write-Host "phase_state none"
 }

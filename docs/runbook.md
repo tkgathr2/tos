@@ -65,3 +65,34 @@ cleanup before execution
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run -Clean
 ```
+
+## execution_policy
+
+config_v0_3.json execution_policy settings
+
+### default_action
+
+- allow: commands are allowed by default
+- deny: all commands are denied
+
+### deny_if_contains
+
+list of keywords that trigger command denial
+
+```json
+"execution_policy": {
+  "default_action": "allow",
+  "deny_if_contains": [
+    "Remove-Item",
+    "rmdir",
+    "del "
+  ]
+}
+```
+
+### behavior
+
+- deny check runs before allowlist check
+- denied commands are not retried
+- phase_state.current_phase becomes "deny" when all commands are denied
+- cc_run.ps1 shows "deny <reason>" when phase is deny

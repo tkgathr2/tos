@@ -7,6 +7,14 @@
   "timeout_sec": 120,
   "workspace_dir": "workspace",
   "logs_dir": "logs",
+  "execution_policy": {
+    "default_action": "allow",
+    "deny_if_contains": [
+      "Remove-Item",
+      "rmdir",
+      "del "
+    ]
+  },
   "allow_types": ["powershell"],
   "deny_patterns": [
     "Remove-Item.*-Recurse",
