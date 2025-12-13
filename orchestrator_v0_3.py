@@ -217,7 +217,10 @@ def build_step_log_data(
     final: dict = None,
     final_raw: str = None,
     execution: dict = None,
-    message: str = None
+    message: str = None,
+    next_phase_name: str = None,
+    next_phase_done_condition: str = None,
+    next_instruction_id: str = None
 ) -> dict:
     """ステップログデータを構築（スキーマ固定）
 
@@ -245,7 +248,10 @@ def build_step_log_data(
         "review_raw": review_raw,
         "final": final,
         "final_raw": final_raw,
-        "execution": execution
+        "execution": execution,
+        "next_phase_name": next_phase_name,
+        "next_phase_done_condition": next_phase_done_condition,
+        "next_instruction_id": next_instruction_id
     }
 
 
@@ -479,6 +485,39 @@ def evaluate_done_minimal(config: dict) -> bool:
         return False
 
 
+def evaluate_phase_done(config: dict) -> dict:
+    """フェーズ完了判定
+
+    Returns:
+        dict: {
+            "done": bool,
+            "done_reason": str,
+            "next_phase_name": str or None,
+            "next_phase_done_condition": str or None,
+            "next_instruction_id": str or None
+        }
+    """
+    # 現在のフェーズ完了条件をチェック
+    is_done = evaluate_done_minimal(config)
+
+    if is_done:
+        return {
+            "done": True,
+            "done_reason": "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む",
+            "next_phase_name": "S-5",
+            "next_phase_done_condition": "次のフェーズの完了条件（未定義）",
+            "next_instruction_id": "指示書010"
+        }
+    else:
+        return {
+            "done": False,
+            "done_reason": "フェーズ完了条件を満たしていない",
+            "next_phase_name": None,
+            "next_phase_done_condition": None,
+            "next_instruction_id": None
+        }
+
+
 def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     """ログ出力用にテキストをサニタイズ（APIキー等の除去、長さ制限）"""
     if text is None:
@@ -562,18 +601,20 @@ def main():
         print("")
         print(f"--- Step {step_num}/{max_steps} ---")
 
-        # done判定（ループ先頭）
-        done_result = evaluate_done_minimal(config)
-        if done_result:
-            done_reason = "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む"
+        # フェーズ完了判定（ループ先頭）
+        phase_result = evaluate_phase_done(config)
+        if phase_result["done"]:
             print(f"[INFO] done=True に到達。ループ終了。")
             step_data = build_step_log_data(
                 phase="done",
                 step_num=step_num,
                 config=config,
                 done=True,
-                done_reason=done_reason,
-                message="目標達成"
+                done_reason=phase_result["done_reason"],
+                message="目標達成",
+                next_phase_name=phase_result["next_phase_name"],
+                next_phase_done_condition=phase_result["next_phase_done_condition"],
+                next_instruction_id=phase_result["next_instruction_id"]
             )
             write_step_log(config, step_num, step_data)
             break
