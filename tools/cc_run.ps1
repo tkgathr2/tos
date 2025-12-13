@@ -132,5 +132,34 @@ if ($exitCode -ne 0) {
   exit $exitCode
 }
 
+# 4) summary display
+Write-Host ""
+Write-Host "=== Execution Summary ==="
+
+$phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
+if (Test-Path $phaseState) {
+  $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
+  Write-Host "phase_state: phase=$($state.current_phase) step=$($state.current_step) done=$($state.last_done)"
+} else {
+  Write-Host "phase_state: not found"
+}
+
+$stepsDir = Join-Path $Root "logs\steps"
+$stepFiles = Get-ChildItem -Path $stepsDir -Filter "step_*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+if ($stepFiles.Count -gt 0) {
+  $latestStep = $stepFiles[0].Name
+  Write-Host "latest step: $latestStep (total=$($stepFiles.Count))"
+} else {
+  Write-Host "latest step: none"
+}
+
+$phaseSummary = Join-Path $Root "logs\phase_summary.json"
+if (Test-Path $phaseSummary) {
+  Write-Host "phase_summary: exists"
+} else {
+  Write-Host "phase_summary: not found"
+}
+
+Write-Host ""
 Write-Host "TOS cc_run end"
 exit 0
