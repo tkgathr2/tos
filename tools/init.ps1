@@ -69,4 +69,23 @@ if (Test-Path $tosPyPathFile) {
   Write-Host "tos_python_path.txt not found"
 }
 
+# API key check
+$missingKeys = @()
+if (-not $env:OPENAI_API_KEY) {
+  $missingKeys += "OPENAI_API_KEY"
+}
+if (-not $env:ANTHROPIC_API_KEY) {
+  $missingKeys += "ANTHROPIC_API_KEY"
+}
+
+if ($missingKeys.Count -gt 0) {
+  Write-Host ""
+  Write-Host "Missing required environment variables:"
+  foreach ($key in $missingKeys) {
+    Write-Host "  $key"
+  }
+  exit 1
+}
+
+Write-Host "API keys OK"
 Write-Host "TOS init done"
