@@ -51,6 +51,66 @@ def ensure_dirs(config: dict) -> None:
     print(f"[INFO] ディレクトリ確認完了")
 
 
+def get_phase_state_path(config: dict) -> Path:
+    """phase_state.json のパスを取得"""
+    return BASE_DIR / config["workspace_dir"] / "artifacts" / "phase_state.json"
+
+
+def load_phase_state(config: dict) -> dict:
+    """フェーズ状態を読み込む
+
+    Returns:
+        dict: フェーズ状態。存在しない場合はNone
+    """
+    state_file = get_phase_state_path(config)
+
+    if not state_file.exists():
+        return None
+
+    try:
+        with open(state_file, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        print(f"[INFO] フェーズ状態を復元: {state_file}")
+        return state
+    except Exception as e:
+        print(f"[WARN] フェーズ状態読み込みエラー: {e}")
+        return None
+
+
+def save_phase_state(config: dict, current_phase: str, current_step: int,
+                     last_done: bool, last_done_reason: str,
+                     next_instruction_id: str = None) -> Path:
+    """フェーズ状態を保存する
+
+    Args:
+        config: 設定dict
+        current_phase: 現在のフェーズ名
+        current_step: 現在のステップ番号
+        last_done: 最後のdone判定結果
+        last_done_reason: done判定の理由
+        next_instruction_id: 次の指示書ID
+
+    Returns:
+        Path: 保存したファイルのパス
+    """
+    state_file = get_phase_state_path(config)
+
+    state = {
+        "current_phase": current_phase,
+        "current_step": current_step,
+        "last_done": last_done,
+        "last_done_reason": last_done_reason,
+        "next_instruction_id": next_instruction_id,
+        "updated_at": datetime.now().isoformat()
+    }
+
+    with open(state_file, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+    print(f"[INFO] フェーズ状態保存: {state_file}")
+    return state_file
+
+
 def load_tos_python_path() -> str:
     """tos_python_path.txt から Python パスを読み込む"""
     if not TOS_PYTHON_PATH_FILE.exists():
@@ -631,7 +691,20 @@ def main():
     # 2. ディレクトリ確認
     ensure_dirs(config)
 
-    # 3. Python パス確認（tos_python_path.txt）
+    # 3. フェーズ状態確認（復帰 or 新規開始）
+    phase_state = load_phase_state(config)
+    if phase_state:
+        start_step = phase_state.get("current_step", 1)
+        if phase_state.get("last_done"):
+            print(f"[INFO] 前回完了済み (step={start_step})。新規開始します。")
+            start_step = 1
+        else:
+            print(f"[INFO] 前回の状態から復帰: step={start_step}")
+    else:
+        start_step = 1
+        print("[INFO] 新規開始")
+
+    # 4. Python パス確認（tos_python_path.txt）
     python_path = load_tos_python_path()
 
     if python_path is None:
@@ -652,7 +725,7 @@ def main():
         print("=" * 60)
         sys.exit(1)
 
-    # 4. Python 検証
+    # 5. Python 検証
     if not verify_python(python_path):
         print("")
         print("=" * 60)
@@ -666,7 +739,7 @@ def main():
         print("=" * 60)
         sys.exit(1)
 
-    # 5. APIキー確認
+    # 6. APIキー確認
     openai_key, anthropic_key = get_api_keys()
 
     if not openai_key:
@@ -685,11 +758,11 @@ def main():
 
     print("[INFO] APIキー確認完了")
 
-    # 6. メインループ
+    # 7. メインループ
     max_steps = config.get("max_steps", 8)
     context = {"history": []}
 
-    for step_num in range(1, max_steps + 1):
+    for step_num in range(start_step, max_steps + 1):
         print("")
         print(f"--- Step {step_num}/{max_steps} ---")
 
@@ -712,6 +785,15 @@ def main():
                 next_instruction_expected_outputs=phase_result["next_instruction_expected_outputs"]
             )
             write_step_log(config, step_num, step_data)
+            # フェーズ状態を保存（完了）
+            save_phase_state(
+                config=config,
+                current_phase="done",
+                current_step=step_num,
+                last_done=True,
+                last_done_reason=phase_result["done_reason"],
+                next_instruction_id=phase_result["next_instruction_id"]
+            )
             break
 
         # API呼び出し: draft (ChatGPT)
@@ -810,6 +892,15 @@ def main():
         )
         write_step_log(config, step_num, step_data)
 
+        # フェーズ状態を保存（実行中）
+        save_phase_state(
+            config=config,
+            current_phase="execute",
+            current_step=step_num + 1,  # 次のステップ番号
+            last_done=False,
+            last_done_reason="ステップ実行完了、次のループでdone判定"
+        )
+
         # コンテキスト更新
         context["history"].append({
             "step": step_num,
@@ -826,6 +917,14 @@ def main():
             done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
         )
         write_step_log(config, max_steps + 1, step_data)
+        # フェーズ状態を保存（max_steps到達）
+        save_phase_state(
+            config=config,
+            current_phase="max_steps_reached",
+            current_step=max_steps + 1,
+            last_done=False,
+            last_done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
+        )
 
     # フェーズサマリを出力
     write_phase_summary(config)
