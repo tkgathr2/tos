@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Generated outputs (keep directories, ignore contents)
+workspace/generated/*
+workspace/results/*
+workspace/artifacts/*
+logs/steps/*
+
+# Keep directory structure
+!workspace/generated/.gitkeep
+!workspace/results/.gitkeep
+!workspace/artifacts/.gitkeep
+!logs/steps/.gitkeep
+
+# Local config (Python path is machine-specific)
+tos_python_path.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

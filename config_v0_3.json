@@ -1,0 +1,10 @@
+{
+  "openai_model": "gpt-5.2",
+  "anthropic_model": "claude-3-5-sonnet",
+  "max_steps": 8,
+  "api_retry": 2,
+  "json_retry": 2,
+  "timeout_sec": 120,
+  "workspace_dir": "workspace",
+  "logs_dir": "logs"
+}
