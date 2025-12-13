@@ -549,6 +549,77 @@ def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     return text
 
 
+def write_phase_summary(config: dict) -> Path:
+    """全ステップのサマリをphase_summary.jsonに集約する
+
+    Returns:
+        Path: 出力ファイルのパス
+    """
+    logs_dir = BASE_DIR / config["logs_dir"]
+    steps_dir = logs_dir / "steps"
+    summary_file = logs_dir / "phase_summary.json"
+
+    # 全ステップログを読み込み
+    step_files = sorted(steps_dir.glob("step_*.json"))
+    steps = []
+    success_count = 0
+    fail_count = 0
+    final_done = False
+    final_phase_result = None
+
+    for step_file in step_files:
+        try:
+            with open(step_file, "r", encoding="utf-8") as f:
+                step_data = json.load(f)
+                steps.append({
+                    "step_num": step_data.get("step_num"),
+                    "phase": step_data.get("phase"),
+                    "done": step_data.get("done"),
+                    "done_reason": step_data.get("done_reason"),
+                    "timestamp": step_data.get("timestamp"),
+                    "error": step_data.get("error"),
+                    "message": step_data.get("message")
+                })
+
+                # 統計情報を集計
+                if step_data.get("phase") == "error":
+                    fail_count += 1
+                elif step_data.get("phase") in ["execute", "done"]:
+                    success_count += 1
+
+                # 最終結果を記録
+                if step_data.get("done"):
+                    final_done = True
+                    final_phase_result = {
+                        "next_phase_name": step_data.get("next_phase_name"),
+                        "next_phase_done_condition": step_data.get("next_phase_done_condition"),
+                        "next_instruction_id": step_data.get("next_instruction_id"),
+                        "next_instruction_summary": step_data.get("next_instruction_summary"),
+                        "next_instruction_inputs": step_data.get("next_instruction_inputs"),
+                        "next_instruction_expected_outputs": step_data.get("next_instruction_expected_outputs")
+                    }
+        except Exception as e:
+            print(f"[WARN] ステップログ読み込みエラー: {step_file} - {e}")
+
+    # サマリを構築
+    summary = {
+        "generated_at": datetime.now().isoformat(),
+        "total_steps": len(steps),
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "final_done": final_done,
+        "final_phase_result": final_phase_result,
+        "steps": steps
+    }
+
+    # ファイル出力
+    with open(summary_file, "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+
+    print(f"[INFO] フェーズサマリ出力: {summary_file}")
+    return summary_file
+
+
 def main():
     print("=" * 60)
     print("TOS v0.3 Orchestrator - S-2 API接続版")
@@ -755,6 +826,9 @@ def main():
             done_reason=f"max_steps ({max_steps}) に到達したが目標未達成"
         )
         write_step_log(config, max_steps + 1, step_data)
+
+    # フェーズサマリを出力
+    write_phase_summary(config)
 
     print("")
     print("=" * 60)
