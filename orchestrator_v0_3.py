@@ -348,20 +348,20 @@ def check_allowlist(config: dict, cmd_type: str, code: str) -> tuple:
     """コマンドがallowlistを通過するか判定する
 
     Returns:
-        tuple: (allowed: bool, reason: str)
+        tuple: (allowed: bool, reason: str, matched_pattern: str or None)
     """
     # 1. type チェック
     allow_types = config.get("allow_types", ["powershell"])
     if cmd_type not in allow_types:
-        return False, f"type '{cmd_type}' は許可されていない (allow_types: {allow_types})"
+        return False, f"type '{cmd_type}' は許可されていない (allow_types: {allow_types})", None
 
     # 2. deny_patterns チェック
     deny_patterns = config.get("deny_patterns", [])
     for pattern in deny_patterns:
         if re.search(pattern, code, re.IGNORECASE):
-            return False, f"禁止パターン '{pattern}' に一致"
+            return False, f"禁止パターン '{pattern}' に一致", pattern
 
-    return True, "allowlist通過"
+    return True, "allowlist通過", None
 
 
 def run_commands(config: dict, commands: list, python_path: str) -> dict:
@@ -374,7 +374,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
         code = cmd.get("code", "")
 
         # allowlist判定
-        allowed, reason = check_allowlist(config, cmd_type, code)
+        allowed, reason, matched_pattern = check_allowlist(config, cmd_type, code)
 
         if not allowed:
             print(f"[DENY] コマンド拒否: {reason}")
@@ -383,6 +383,7 @@ def run_commands(config: dict, commands: list, python_path: str) -> dict:
                 "code": code[:200] + "..." if len(code) > 200 else code,
                 "allowed": False,
                 "deny_reason": reason,
+                "matched_pattern": matched_pattern,
                 "executed": False
             })
             continue
@@ -642,6 +643,7 @@ def main():
                 "type": cmd_result.get("type"),
                 "allowed": cmd_result.get("allowed"),
                 "reason": cmd_result.get("allow_reason") or cmd_result.get("deny_reason"),
+                "matched_pattern": cmd_result.get("matched_pattern"),
                 "executed": cmd_result.get("executed"),
                 "returncode": cmd_result.get("returncode"),
                 "timeout": cmd_result.get("timeout", False)
