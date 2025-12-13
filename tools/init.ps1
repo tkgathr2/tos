@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "TOS init start"
-Write-Host "Root: $Root"
+Write-Host "Root $Root"
 
 if (-not (Test-Path $Root)) {
   New-Item -ItemType Directory -Path $Root -Force | Out-Null
@@ -23,7 +23,7 @@ $dirs = @(
 foreach ($d in $dirs) {
   if (-not (Test-Path $d)) {
     New-Item -ItemType Directory -Path $d -Force | Out-Null
-    Write-Host "Created dir: $d"
+    Write-Host "Created dir $d"
   }
 }
 
@@ -35,9 +35,9 @@ $mustFiles = @(
 
 foreach ($f in $mustFiles) {
   if (Test-Path $f) {
-    Write-Host "Found file: $f"
+    Write-Host "Found file $f"
   } else {
-    Write-Host "Missing file: $f"
+    Write-Host "Missing file $f"
   }
 }
 
@@ -49,7 +49,7 @@ try {
 }
 
 if ($pyCandidates.Count -gt 0) {
-  Write-Host "where python results:"
+  Write-Host "where python results"
   $pyCandidates | ForEach-Object { Write-Host "  $_" }
 } else {
   Write-Host "where python returned nothing"
@@ -58,10 +58,10 @@ if ($pyCandidates.Count -gt 0) {
 $tosPyPathFile = Join-Path $Root "tos_python_path.txt"
 if (Test-Path $tosPyPathFile) {
   $tosPy = (Get-Content $tosPyPathFile -ErrorAction Stop | Select-Object -First 1).Trim()
-  Write-Host "tos_python_path.txt: $tosPy"
+  Write-Host "tos_python_path.txt $tosPy"
   if ($tosPy -and (Test-Path $tosPy)) {
     $ver = & $tosPy --version 2>&1
-    Write-Host "tos python version: $ver"
+    Write-Host "tos python version $ver"
   } else {
     Write-Host "tos python path is missing or invalid"
   }
@@ -79,8 +79,7 @@ if (-not $env:ANTHROPIC_API_KEY) {
 }
 
 if ($missingKeys.Count -gt 0) {
-  Write-Host ""
-  Write-Host "Missing required environment variables:"
+  Write-Host "missing env vars"
   foreach ($key in $missingKeys) {
     Write-Host "  $key"
   }
