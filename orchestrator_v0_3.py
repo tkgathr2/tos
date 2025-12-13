@@ -95,8 +95,21 @@ def save_phase_state(config: dict, current_phase: str, current_step: int,
     """
     state_file = get_phase_state_path(config)
 
+    # IM: previous_phase が存在しない場合のみ S-4 を設定
+    previous_phase = None
+    if state_file.exists():
+        try:
+            with open(state_file, "r", encoding="utf-8") as f:
+                existing_state = json.load(f)
+                previous_phase = existing_state.get("previous_phase")
+        except Exception:
+            pass
+    if previous_phase is None:
+        previous_phase = "S-4"
+
     state = {
         "current_phase": current_phase,
+        "previous_phase": previous_phase,
         "current_step": current_step,
         "last_done": last_done,
         "last_done_reason": last_done_reason,
@@ -299,6 +312,7 @@ def build_step_log_data(
     message: str = None,
     stopped: bool = False,
     is_experimental: bool = False,
+    s5_flag: bool = False,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -320,6 +334,7 @@ def build_step_log_data(
         "message": message,
         "stopped": stopped,
         "is_experimental": is_experimental,
+        "s5_flag": s5_flag,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -849,6 +864,7 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "current_phase": "S-5",
         "previous_phase": "S-4",
         "is_experimental": is_experimental,
+        "experimental": is_experimental,
         "total_steps": len(steps),
         "success_count": success_count,
         "fail_count": fail_count,
@@ -945,6 +961,7 @@ def main():
     # S-5 experimental フラグ
     s5_settings = config.get("s5_settings", {})
     is_experimental = s5_settings.get("enabled", False)
+    s5_flag = is_experimental  # S-5 実行時は s5_flag=true
     if is_experimental:
         print("S-5 experimental mode enabled")
 
@@ -986,6 +1003,7 @@ def main():
                 done_reason=phase_result["done_reason"],
                 message="目標達成",
                 is_experimental=is_experimental,
+                s5_flag=s5_flag,
                 next_phase_name=phase_result["next_phase_name"],
                 next_phase_done_condition=phase_result["next_phase_done_condition"],
                 next_instruction_id=phase_result["next_instruction_id"],
@@ -1019,6 +1037,7 @@ def main():
                 error="draft生成失敗",
                 stopped=True,
                 is_experimental=is_experimental,
+                s5_flag=s5_flag,
                 prompts_used={"draft": draft_prompt_info},
                 draft_raw=sanitize_for_log(draft_raw)
             )
@@ -1046,6 +1065,7 @@ def main():
                 error="review生成失敗",
                 stopped=True,
                 is_experimental=is_experimental,
+                s5_flag=s5_flag,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info},
                 draft=draft,
                 review_raw=sanitize_for_log(review_raw)
@@ -1074,6 +1094,7 @@ def main():
                 error="final生成失敗",
                 stopped=True,
                 is_experimental=is_experimental,
+                s5_flag=s5_flag,
                 prompts_used={"draft": draft_prompt_info, "review": review_prompt_info, "final": final_prompt_info},
                 draft=draft,
                 review=review,
@@ -1143,7 +1164,8 @@ def main():
                 },
                 message=f"deny: {deny_reason_str}",
                 stopped=stop_on_deny,
-                is_experimental=is_experimental
+                is_experimental=is_experimental,
+                s5_flag=s5_flag
             )
             write_step_log(config, step_num, step_data)
 
@@ -1208,7 +1230,8 @@ def main():
                 final=final,
                 final_raw=sanitize_for_log(final_raw),
                 execution=exec_result,
-                is_experimental=is_experimental
+                is_experimental=is_experimental,
+                s5_flag=s5_flag
             )
             write_step_log(config, step_num, step_data)
 
@@ -1235,7 +1258,8 @@ def main():
             config=config,
             done=False,
             done_reason=f"max_steps ({max_steps}) に到達したが目標未達成",
-            is_experimental=is_experimental
+            is_experimental=is_experimental,
+            s5_flag=s5_flag
         )
         write_step_log(config, max_steps + 1, step_data)
         # フェーズ状態を保存（max_steps到達）

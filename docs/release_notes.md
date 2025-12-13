@@ -5,10 +5,14 @@
 - Started S-5 experimental phase
 - Added s5_settings configuration section
 - Added is_experimental flag to step_log
-- Added previous_phase=S-4 to phase_summary.json
-- cc_run.ps1 displays "(experimental)" for S-5 phase
+- Added s5_flag to step_log for S-5 identification
+- Added previous_phase=S-4 to phase_summary.json and phase_state.json
+- Added experimental=true to phase_summary.json
+- cc_run.ps1 displays "S-5 experimental" for S-5 phase
+- test mode shows "experimental mode active" when in S-5 phase
 - test mode shows warning when is_experimental=true
-- Updated runbook.md with S-5 section
+- Updated runbook.md with S-5 section and recommended workflow
+- Added experimental_warning setting to s5_settings
 
 ## S-4 Changes
 

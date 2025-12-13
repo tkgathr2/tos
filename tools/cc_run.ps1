@@ -363,6 +363,12 @@ if ($Mode -eq "test") {
     }
   }
 
+  # IO: S-5 experimental mode active display (does not affect exit code)
+  $stateForIO = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
+  if ($stateForIO.current_phase -eq "S-5") {
+    Write-Host "experimental mode active"
+  }
+
   if ($testPassed) {
     Write-Host "test passed"
   } else {
@@ -392,10 +398,10 @@ $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
 $exitWithError = $false
 if (Test-Path $phaseState) {
   $state = Get-Content $phaseState -Encoding UTF8 | ConvertFrom-Json
-  # IE: S-5 experimental display
+  # IE/IN: S-5 experimental display
   $phaseDisplay = $state.current_phase
   if ($state.current_phase -eq "S-5") {
-    $phaseDisplay = "$($state.current_phase) (experimental)"
+    $phaseDisplay = "S-5 experimental"
   }
   Write-Host "phase_state phase=$phaseDisplay step=$($state.current_step) done=$($state.last_done)"
   # DJ: Priority order: fatal_error > deny > stopped

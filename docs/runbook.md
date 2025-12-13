@@ -320,6 +320,28 @@ S-5 is an experimental phase for testing new features.
 - use checkpoint before testing experimental features
 - rollback if unexpected behavior occurs
 
+### recommended workflow for S-5 experimental
+
+1. **checkpoint before changes**: always create a checkpoint before running experimental features
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S5_before_experiment
+   ```
+
+2. **run experimental**: execute with cleanrun to ensure clean state
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode cleanrun
+   ```
+
+3. **verify results**: check test mode for experimental warnings
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
+   ```
+
+4. **rollback if needed**: if unexpected behavior occurs, rollback immediately
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
+   ```
+
 ### s5_settings configuration
 
 ```json
