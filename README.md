@@ -2,6 +2,23 @@
 
 Takagi Orchestration System - AI-powered task orchestrator
 
+## S-5 の目的
+
+**S-5 = experimental 最終段階**
+
+S-5 フェーズは TOS の experimental フェーズの最終段階です。以下を達成しています：
+
+- job_loop 機能の実装完了
+- job_input/job_result によるペイロード連携
+- checkpoint/rollback による安全な実験環境
+- 動作の安定性確認済み
+
+**重要: S-6 は未定義です**
+
+S-5 の次フェーズ（S-6）は現時点で定義されていません。S-5 をもって experimental フェーズは凍結されます。新機能追加や仕様変更は行いません。
+
+---
+
 ## Requirements
 
 - Python 3.12+
