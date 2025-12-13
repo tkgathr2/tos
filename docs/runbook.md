@@ -1,5 +1,7 @@
 # TOS v0.3 Runbook
 
+See also: [README.md](../README.md) for quick start guide.
+
 ## cc_run.ps1
 
 TOS orchestrator launcher
@@ -291,3 +293,10 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -Ch
 # rollback mode
 powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 ```
+
+## S-4 completion checklist
+
+- [ ] run/test/cleanrun modes pass
+- [ ] deny/fatal_error/stopped states are distinguishable
+- [ ] checkpoint/rollback modes pass
+- [ ] SummaryFile outputs JSON and TXT
