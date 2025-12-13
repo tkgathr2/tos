@@ -224,6 +224,8 @@ def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> t
 条件:
 - result_v2.txt には「合計:」「平均:」「件数:」の3つのキーワードを含めること
 - PowerShellコマンドで実行可能な形式で出力すること
+- ファイル出力には Set-Content を使用すること（Out-File は使わない）
+- エンコーディングは UTF8 を指定すること
 
 ステップ: {step_num}
 これまでの履歴: {json.dumps(context.get("history", []), ensure_ascii=False)}
@@ -257,7 +259,7 @@ def review_plus(config: dict, step_num: int, draft: dict, context: dict, anthrop
 レビュー観点:
 1. コマンドが安全か（危険なコマンドがないか）
 2. 目標を達成できるか
-3. より良い方法があれば改善
+3. ファイル出力には Set-Content -Encoding UTF8 を使うこと（Out-File は使わない）
 
 以下のJSON形式のみで応答してください。説明文は不要です。
 {{
@@ -580,6 +582,19 @@ def main():
         commands = final.get("final_commands", [])
         exec_result = run_commands(config, commands, python_path)
 
+        # allowlist判定サマリを作成
+        allowlist_summary = []
+        for cmd_result in exec_result.get("command_results", []):
+            summary = {
+                "type": cmd_result.get("type"),
+                "allowed": cmd_result.get("allowed"),
+                "reason": cmd_result.get("allow_reason") or cmd_result.get("deny_reason"),
+                "executed": cmd_result.get("executed"),
+                "returncode": cmd_result.get("returncode"),
+                "timeout": cmd_result.get("timeout", False)
+            }
+            allowlist_summary.append(summary)
+
         # ステップログ出力（詳細版）
         step_data = {
             "phase": "execute",
@@ -588,6 +603,8 @@ def main():
                 "review": config.get("anthropic_model"),
                 "final": config.get("openai_model")
             },
+            "final_commands": commands,
+            "allowlist_summary": allowlist_summary,
             "draft": draft,
             "draft_raw": sanitize_for_log(draft_raw),
             "review": review,
