@@ -1,11 +1,33 @@
 param(
-  [string]$Root = "C:\Users\takag\00_dev\tos"
+  [string]$Root = "C:\Users\takag\00_dev\tos",
+  [switch]$Clean
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "TOS cc_run start"
 Write-Host "Root: $Root"
+
+# 0) optional cleanup
+if ($Clean) {
+  Write-Host "Cleanup enabled"
+  $stepsDir = Join-Path $Root "logs\steps"
+  $phaseSummary = Join-Path $Root "logs\phase_summary.json"
+  $phaseState = Join-Path $Root "workspace\artifacts\phase_state.json"
+
+  if (Test-Path $stepsDir) {
+    Get-ChildItem -Path $stepsDir -Filter "step_*.json" | Remove-Item -Force
+    Write-Host "Cleaned: logs/steps/step_*.json"
+  }
+  if (Test-Path $phaseSummary) {
+    Remove-Item -Path $phaseSummary -Force
+    Write-Host "Cleaned: logs/phase_summary.json"
+  }
+  if (Test-Path $phaseState) {
+    Remove-Item -Path $phaseState -Force
+    Write-Host "Cleaned: workspace/artifacts/phase_state.json"
+  }
+}
 
 # 1) init
 $initPath = Join-Path $Root "tools\init.ps1"
