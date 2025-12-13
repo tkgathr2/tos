@@ -87,10 +87,13 @@ JSON content
 - latest_step
 - step_count
 - phase_summary_exists
+- job_result_exists (true/false)
+- job_result_path (only if job_result_exists=true)
 
 TXT content
 - 1 line format
-- phase=done step=1 done=True latest_step=step_001.json step_count=1 phase_summary=exists
+- phase=done step=1 done=True latest_step=step_001.json step_count=1 phase_summary=exists job_result=none
+- when job_result.json exists: job_result=exists job_result_path=<path>
 
 ### Clean option
 

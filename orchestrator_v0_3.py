@@ -320,6 +320,7 @@ def build_step_log_data(
     job_name: str = None,
     job_index: int = None,
     job_payload: dict = None,
+    job_result_written: bool = False,
     next_phase_name: str = None,
     next_phase_done_condition: str = None,
     next_instruction_id: str = None,
@@ -355,6 +356,7 @@ def build_step_log_data(
         "job_name": job_name,
         "job_index": job_index,
         "job_payload": sanitized_job_payload,
+        "job_result_written": job_result_written,
         "models_used": models_used or {
             "draft": config.get("openai_model"),
             "review": config.get("anthropic_model"),
@@ -810,7 +812,7 @@ def write_job_result(config: dict, job_name: str, max_jobs: int, jobs_executed: 
     return result_file
 
 
-def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None) -> Path:
+def write_phase_summary(config: dict, skipped_steps: list = None, execution_summary: dict = None, end_reason: str = None, job_loop_info: dict = None, job_result_path: str = None) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
 
     Args:
@@ -819,6 +821,7 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         execution_summary: 実行サマリ
         end_reason: 終了理由
         job_loop_info: job_loop情報 (JH)
+        job_result_path: job_result.jsonのパス (LH)
 
     Returns:
         Path: 出力ファイルのパス
@@ -952,7 +955,8 @@ def write_phase_summary(config: dict, skipped_steps: list = None, execution_summ
         "fatal_error_steps": fatal_error_steps,
         "stopped_steps": stopped_steps,
         "skipped_steps": skipped_steps or [],
-        "steps": steps
+        "steps": steps,
+        "job_result_path": job_result_path
     }
 
     # ファイル出力
@@ -1092,9 +1096,25 @@ def main():
                 "current_job_index": job_index,
                 "completed": True
             }
-            write_phase_summary(config, [], {}, f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達", job_loop_complete_info)
+            # LG: job_loop_complete のstep_logを出力 (job_result_written=true)
+            step_data = build_step_log_data(
+                phase="job_loop_complete",
+                step_num=start_step,
+                config=config,
+                done=True,
+                done_reason=f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達",
+                message="job_loop完了",
+                is_experimental=is_experimental,
+                s5_flag=s5_flag,
+                job_loop_enabled=job_loop_enabled,
+                job_name=job_loop_job_name,
+                job_index=job_index,
+                job_payload=job_payload,
+                job_result_written=True
+            )
+            write_step_log(config, start_step, step_data)
             # KH-KI: job_result.json を出力
-            write_job_result(
+            job_result_file = write_job_result(
                 config=config,
                 job_name=job_loop_job_name,
                 max_jobs=job_loop_max_jobs,
@@ -1103,6 +1123,8 @@ def main():
                 last_phase="job_loop_complete",
                 last_step=start_step
             )
+            # LH: phase_summaryにjob_result_pathを保存
+            write_phase_summary(config, [], {}, f"job_loop_complete: max_jobs({job_loop_max_jobs})に到達", job_loop_complete_info, str(job_result_file))
             print(f"TOS v0.3 Orchestrator 終了 (job_loop_complete)")
             sys.exit(0)
 

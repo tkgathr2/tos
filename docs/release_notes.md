@@ -39,6 +39,17 @@
 - cc_run.ps1 test/run mode displays job_result.json exists status
 - Updated runbook.md with job payload documentation
 
+### S-5 SummaryFile job_result
+
+- SummaryFile JSON includes job_result_exists (true/false)
+- SummaryFile JSON includes job_result_path when job_result.json exists
+- SummaryFile TXT includes job_result=exists|none
+- SummaryFile TXT includes job_result_path when job_result.json exists
+- step_log includes job_result_written (true/false)
+- job_result_written=true only for job_loop_complete phase
+- phase_summary includes job_result_path when job_result.json is output
+- test mode passes when job_loop_complete + job_result.json exists
+
 ## S-4 Changes
 
 - Added run/test/cleanrun/checkpoint/rollback modes to cc_run.ps1

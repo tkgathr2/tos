@@ -277,6 +277,15 @@ function Save-Summary {
     $phase_summary_exists = $true
   }
 
+  # LA-LD: job_result.json check
+  $job_result_exists = $false
+  $job_result_path = $null
+  $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
+  if (Test-Path $jobResultPath) {
+    $job_result_exists = $true
+    $job_result_path = $jobResultPath
+  }
+
   # Save JSON
   $summary = @{
     phase = $phase
@@ -285,13 +294,24 @@ function Save-Summary {
     latest_step = $latest_step
     step_count = $step_count
     phase_summary_exists = $phase_summary_exists
+    job_result_exists = $job_result_exists
+  }
+  # LC: Add job_result_path if exists
+  if ($job_result_path) {
+    $summary.job_result_path = $job_result_path
   }
   $summary | ConvertTo-Json -Depth 10 | Set-Content -Path $fullPath -Encoding UTF8
 
   # Save TXT (same base name with .txt extension)
   $txtPath = [System.IO.Path]::ChangeExtension($fullPath, ".txt")
   $phaseSummaryText = if ($phase_summary_exists) { "exists" } else { "none" }
-  $txtContent = "phase=$phase step=$step done=$done latest_step=$latest_step step_count=$step_count phase_summary=$phaseSummaryText"
+  # LB: Add job_result to TXT
+  $jobResultText = if ($job_result_exists) { "exists" } else { "none" }
+  $txtContent = "phase=$phase step=$step done=$done latest_step=$latest_step step_count=$step_count phase_summary=$phaseSummaryText job_result=$jobResultText"
+  # LD: Add job_result_path if exists
+  if ($job_result_path) {
+    $txtContent += " job_result_path=$job_result_path"
+  }
   $txtContent | Set-Content -Path $txtPath -Encoding UTF8
 
   Write-Host "summary saved $fullPath"
@@ -336,12 +356,13 @@ if ($Mode -eq "test") {
       Write-Host "FAIL phase is fatal_error: $($state.last_done_reason)"
       $testPassed = $false
     }
-    # JJ: job_loop_complete is treated as passed
+    # JJ/LI: job_loop_complete is treated as passed when job_result.json exists
     if ($state.current_phase -eq "job_loop_complete") {
       Write-Host "job_loop_complete: $($state.last_done_reason)"
       # KJ: Check job_result.json exists
       $jobResultPath = Join-Path $Root "workspace\artifacts\job_result.json"
       if (Test-Path $jobResultPath) {
+        # LI: job_loop_complete + job_result_exists = test passed
         Write-Host "job_result.json exists"
       } else {
         Write-Host "WARNING: job_result.json not found"
