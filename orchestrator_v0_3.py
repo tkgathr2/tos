@@ -143,24 +143,36 @@ def verify_python(python_path: str) -> bool:
     return False
 
 
-def parse_json_strict(text: str) -> dict:
-    """JSON文字列を厳密にパース"""
-    # ```json ... ``` のブロックを抽出
+def parse_json_strict(text: str) -> tuple:
+    """JSON文字列を厳密にパース
+
+    Returns:
+        tuple: (parsed_dict or None, extracted_text for logging)
+    """
+    original_text = text
+    extracted_text = None
+
+    # ```json ... ``` のブロックを抽出（最初のものを採用）
     match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
     if match:
         text = match.group(1)
+        extracted_text = text
 
-    # { ... } のブロックを抽出（JSONオブジェクトのみ対応）
+    # { ... } のブロックを抽出（最初のJSONオブジェクトを採用）
     if not text.strip().startswith('{'):
-        match = re.search(r'\{.*\}', text, re.DOTALL)
+        match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
         if match:
             text = match.group(0)
+            extracted_text = text
+
+    if extracted_text is None:
+        extracted_text = text
 
     try:
-        return json.loads(text)
+        return json.loads(text), extracted_text
     except json.JSONDecodeError as e:
         print(f"JSONパース失敗: {e}")
-        return None
+        return None, extracted_text
 
 
 def get_api_keys() -> tuple:
@@ -231,8 +243,16 @@ def call_anthropic_api(config: dict, prompt: str, api_key: str, retry_count: int
 
 
 def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: str) -> tuple:
-    """APIを呼び出し、JSONパースに失敗したらリトライする"""
+    """APIを呼び出し、JSONパースに失敗したらリトライする
+
+    Returns:
+        tuple: (raw_response, parsed_dict, extracted_text)
+    """
     max_json_retries = config.get("json_retry", 2)
+    json_retry_prefix = config.get("json_retry_prefix",
+        "前回の応答がJSON形式ではありませんでした。必ず以下の形式で、JSONのみを返してください。説明文は不要です。")
+
+    extracted_text = None
 
     for attempt in range(max_json_retries + 1):
         if api_type == "openai":
@@ -242,21 +262,20 @@ def call_api_with_json_retry(config: dict, prompt: str, api_key: str, api_type: 
 
         if raw_response is None:
             print("API呼び出しが失敗しました")
-            return None, None
+            return None, None, None
 
-        parsed = parse_json_strict(raw_response)
+        parsed, extracted_text = parse_json_strict(raw_response)
         if parsed is not None:
-            return raw_response, parsed
+            return raw_response, parsed, extracted_text
 
         if attempt < max_json_retries:
             print(f"JSONパース失敗。再プロンプトでリトライ {attempt + 1}/{max_json_retries}")
-            prompt = f"""前回の応答がJSON形式ではありませんでした。
-必ず以下の形式で、JSONのみを返してください。説明文は不要です。
+            prompt = f"""{json_retry_prefix}
 
 {prompt}"""
 
     print("JSONパースリトライ上限に達しました")
-    return raw_response, None
+    return raw_response, None, extracted_text
 
 
 def build_step_log_data(
@@ -364,10 +383,13 @@ def make_draft(config: dict, step_num: int, context: dict, openai_key: str) -> t
 
     prompt_info = {
         "template_name": template_name,
-        "prompt": sanitize_for_log(prompt, 500)
+        "prompt": sanitize_for_log(prompt, 300),
+        "prompt_length": len(prompt)
     }
 
-    raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    raw, parsed, extracted = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    if parsed is None and extracted:
+        prompt_info["extracted_text"] = sanitize_for_log(extracted, 300)
     return raw, parsed, prompt_info
 
 
@@ -389,10 +411,13 @@ def review_plus(config: dict, step_num: int, draft: dict, context: dict, anthrop
 
     prompt_info = {
         "template_name": template_name,
-        "prompt": sanitize_for_log(prompt, 500)
+        "prompt": sanitize_for_log(prompt, 300),
+        "prompt_length": len(prompt)
     }
 
-    raw, parsed = call_api_with_json_retry(config, prompt, anthropic_key, "anthropic")
+    raw, parsed, extracted = call_api_with_json_retry(config, prompt, anthropic_key, "anthropic")
+    if parsed is None and extracted:
+        prompt_info["extracted_text"] = sanitize_for_log(extracted, 300)
     return raw, parsed, prompt_info
 
 
@@ -416,10 +441,13 @@ def make_final(config: dict, step_num: int, draft: dict, review: dict, openai_ke
 
     prompt_info = {
         "template_name": template_name,
-        "prompt": sanitize_for_log(prompt, 500)
+        "prompt": sanitize_for_log(prompt, 300),
+        "prompt_length": len(prompt)
     }
 
-    raw, parsed = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    raw, parsed, extracted = call_api_with_json_retry(config, prompt, openai_key, "openai")
+    if parsed is None and extracted:
+        prompt_info["extracted_text"] = sanitize_for_log(extracted, 300)
     return raw, parsed, prompt_info
 
 

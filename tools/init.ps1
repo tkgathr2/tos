@@ -79,10 +79,7 @@ if (-not $env:ANTHROPIC_API_KEY) {
 }
 
 if ($missingKeys.Count -gt 0) {
-  Write-Host "missing env vars"
-  foreach ($key in $missingKeys) {
-    Write-Host "  $key"
-  }
+  Write-Host "missing env vars $($missingKeys -join ' ')"
   exit 1
 }
 

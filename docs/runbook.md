@@ -4,6 +4,12 @@
 
 TOS orchestrator launcher
 
+### usage
+
+```
+usage cc_run.ps1 -Mode run|test|cleanrun -Clean -SummaryFile path
+```
+
 ### run mode
 
 orchestrator execution
@@ -39,6 +45,18 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run -SummaryFi
 output files
 - logs/last_run_summary.json
 - logs/last_run_summary.txt
+
+JSON content
+- phase
+- step
+- done
+- latest_step
+- step_count
+- phase_summary_exists
+
+TXT content
+- 1 line format
+- phase=done step=1 done=True latest_step=step_001.json step_count=1 phase_summary=exists
 
 ### Clean option
 
