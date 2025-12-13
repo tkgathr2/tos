@@ -1,8 +1,9 @@
 {
-  "generated_at": "2025-12-13T14:06:32.366703",
-  "total_steps": 1,
-  "success_count": 1,
+  "generated_at": "2025-12-13T14:08:57.613787",
+  "total_steps": 2,
+  "success_count": 2,
   "fail_count": 0,
+  "skipped_count": 1,
   "final_done": true,
   "final_phase_result": {
     "next_phase_name": "S-5",
@@ -18,6 +19,12 @@
       "logs/steps/step_XXX.json (実行ログ)"
     ]
   },
+  "skipped_steps": [
+    {
+      "step_num": 1,
+      "skip_reason": "step_001.json が既に存在するためスキップ"
+    }
+  ],
   "steps": [
     {
       "step_num": 1,
@@ -25,6 +32,15 @@
       "done": true,
       "done_reason": "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む",
       "timestamp": "2025-12-13T14:06:32.365575",
+      "error": null,
+      "message": "目標達成"
+    },
+    {
+      "step_num": 2,
+      "phase": "done",
+      "done": true,
+      "done_reason": "workspace/results/result_v2.txt が存在し、合計/平均/件数の全キーワードを含む",
+      "timestamp": "2025-12-13T14:08:57.612558",
       "error": null,
       "message": "目標達成"
     }

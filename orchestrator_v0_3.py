@@ -321,6 +321,13 @@ def build_step_log_data(
     }
 
 
+def step_log_exists(config: dict, step_num: int) -> bool:
+    """ステップログが存在するか確認する"""
+    logs_dir = BASE_DIR / config["logs_dir"] / "steps"
+    log_file = logs_dir / f"step_{step_num:03d}.json"
+    return log_file.exists()
+
+
 def write_step_log(config: dict, step_num: int, data: dict) -> Path:
     """ステップログを書き込む"""
     logs_dir = BASE_DIR / config["logs_dir"] / "steps"
@@ -609,8 +616,12 @@ def sanitize_for_log(text: str, max_length: int = 2000) -> str:
     return text
 
 
-def write_phase_summary(config: dict) -> Path:
+def write_phase_summary(config: dict, skipped_steps: list = None) -> Path:
     """全ステップのサマリをphase_summary.jsonに集約する
+
+    Args:
+        config: 設定dict
+        skipped_steps: スキップしたステップのリスト
 
     Returns:
         Path: 出力ファイルのパス
@@ -667,8 +678,10 @@ def write_phase_summary(config: dict) -> Path:
         "total_steps": len(steps),
         "success_count": success_count,
         "fail_count": fail_count,
+        "skipped_count": len(skipped_steps) if skipped_steps else 0,
         "final_done": final_done,
         "final_phase_result": final_phase_result,
+        "skipped_steps": skipped_steps or [],
         "steps": steps
     }
 
@@ -761,10 +774,21 @@ def main():
     # 7. メインループ
     max_steps = config.get("max_steps", 8)
     context = {"history": []}
+    skipped_steps = []  # スキップしたステップを記録
 
     for step_num in range(start_step, max_steps + 1):
         print("")
         print(f"--- Step {step_num}/{max_steps} ---")
+
+        # 重複実行チェック（ステップログが既に存在する場合はスキップ）
+        if step_log_exists(config, step_num):
+            skip_reason = f"step_{step_num:03d}.json が既に存在するためスキップ"
+            print(f"[SKIP] {skip_reason}")
+            skipped_steps.append({
+                "step_num": step_num,
+                "skip_reason": skip_reason
+            })
+            continue
 
         # フェーズ完了判定（ループ先頭）
         phase_result = evaluate_phase_done(config)
@@ -927,7 +951,7 @@ def main():
         )
 
     # フェーズサマリを出力
-    write_phase_summary(config)
+    write_phase_summary(config, skipped_steps)
 
     print("")
     print("=" * 60)
