@@ -8,24 +8,32 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 ---
 
-## S-5 Closeout 完了
+## S-6 Stable フェーズ開始
 
-**S-5 フェーズは 2025-12-14 に closeout 完了しました。**
+**S-6 stable フェーズは 2025-12-14 に開始しました。**
 
-**S-5 は履歴フェーズです。以後の変更は禁止されています。**
+**S-6 の目的**: S-5 で確立した機能を安定運用し、実運用環境での継続的な利用を可能にする。
 
-S-5 フェーズは TOS の experimental フェーズの最終段階として、以下を達成しました：
+### S-5 は履歴フェーズ
 
+S-5 フェーズは 2025-12-14 に closeout 完了し、履歴フェーズとなりました。S-5 への変更は禁止されています。
+
+S-5 で達成した内容：
 - job_loop 機能の実装完了
 - job_input/job_result によるペイロード連携
 - checkpoint/rollback による安全な実験環境
 - 動作の安定性確認済み
 
-**重要: S-6 は未定義です**
+### S-6 と S-5 の違い
 
-S-5 の次フェーズ（S-6）は現時点で定義されていません。S-5 をもって experimental フェーズは凍結されました。新機能追加や仕様変更は行いません。
+| 項目 | S-5 (experimental) | S-6 (stable) |
+|------|-------------------|--------------|
+| ステータス | 履歴フェーズ（凍結） | 現行フェーズ（運用中） |
+| 変更 | 禁止 | 運用ルール内で許可 |
+| 目的 | 機能開発・検証 | 安定運用 |
+| 新機能 | なし | なし（安定維持優先） |
 
-**注意**: 以下の Example セクションは S-5 動作確認用の履歴記録です。新規運用ではなく、rollback による復旧確認目的でのみ使用してください。
+詳細は [S-6 Stable](docs/s6_stable.md) を参照してください。
 
 ---
 
@@ -168,32 +176,45 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 ### 正史の前提
 
-- TOS v0.3 は S-5 フェーズで凍結されています
-- S-5 以降の新機能追加・仕様変更は行いません
-- 本リポジトリのドキュメントが唯一の正しい情報源です
+- TOS v0.3 は S-6 stable フェーズで運用中
+- S-5 は履歴フェーズとして凍結済み
+- 新機能追加・仕様変更は行わない（安定維持優先）
+- 本リポジトリのドキュメントが唯一の正しい情報源
 
 ### 禁止事項
 
-- 正史を無視した運用は禁止されています
-- ドキュメントに記載のない独自拡張は禁止されています
-- S-5 で定義されていない機能の使用は禁止されています
+- 正史を無視した運用は禁止
+- ドキュメントに記載のない独自拡張は禁止
+- S-5/S-6 で定義されていない機能の使用は禁止
 
-詳細は [S-5 Closeout](docs/s5_closeout.md) を参照してください。
+### 正史更新履歴
+
+- 2025-12-14: S-5 closeout 完了
+- 2025-12-14: S-6 stable 開始
+
+詳細は [S-6 Stable](docs/s6_stable.md) を参照してください。
 
 ---
 
 ## Documentation
 
-- [Runbook](docs/runbook.md) - Detailed usage guide
-- [Release Notes](docs/release_notes.md) - Version history
-- [S-5 Closeout](docs/s5_closeout.md) - S-5 closeout declaration
-- [S-5 Definition](docs/s5_definition.md) - S-5 phase definition
-- [S-5 Closeout Checklist](docs/s5_closeout_checklist.md) - Closeout verification checklist
+### S-6 Stable（現行フェーズ）
+
+- [S-6 Stable](docs/s6_stable.md) - S-6 フェーズ定義・運用ルール
+- [S-6 Stable Checklist](docs/s6_stable_checklist.md) - 運用チェックリスト
+- [Runbook](docs/runbook.md) - 運用手順ガイド
+- [Release Notes](docs/release_notes.md) - 変更履歴
+
+### S-5（履歴フェーズ）
+
+- [S-5 Closeout](docs/s5_closeout.md) - S-5 closeout 宣言
+- [S-5 Definition](docs/s5_definition.md) - S-5 フェーズ定義
+- [S-5 Closeout Checklist](docs/s5_closeout_checklist.md) - Closeout チェックリスト
 
 ### 引き継ぎ時の推奨読み順
 
 1. **README.md**（本ファイル）- 概要把握
-2. **docs/s5_closeout.md** - closeout 宣言・禁止事項の確認
-3. **docs/runbook.md** - 運用手順の確認（rollback 専用）
-4. **docs/s5_definition.md** - S-5 の技術的定義
+2. **docs/s6_stable.md** - S-6 運用ルールの確認
+3. **docs/runbook.md** - 運用手順の確認
+4. **docs/s6_stable_checklist.md** - 運用チェックリスト
 5. **docs/release_notes.md** - 変更履歴の確認
