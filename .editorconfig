@@ -1,0 +1,37 @@
+# TOS v0.3 EditorConfig
+# S-6 stable 編集環境標準
+
+root = true
+
+# 全ファイル共通
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 2
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Python ファイル
+[*.py]
+indent_size = 4
+
+# PowerShell ファイル（CRLF）
+[*.ps1]
+end_of_line = crlf
+
+# バッチファイル（CRLF）
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# Markdown ファイル
+[*.md]
+trim_trailing_whitespace = false
+
+# JSON ファイル
+[*.json]
+indent_size = 2
+
+# Makefile（タブ必須）
+[Makefile]
+indent_style = tab

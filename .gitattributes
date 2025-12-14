@@ -1,0 +1,32 @@
+# TOS v0.3 Git Attributes
+# S-6 stable 改行コード方針
+
+# テキストファイルは LF で正規化
+* text=auto eol=lf
+
+# Markdown ファイル
+*.md text eol=lf
+
+# JSON ファイル
+*.json text eol=lf
+
+# Python ファイル
+*.py text eol=lf
+
+# PowerShell ファイル（Windows 標準のため CRLF）
+*.ps1 text eol=crlf
+
+# バッチファイル（Windows 標準のため CRLF）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 設定ファイル
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.editorconfig text eol=lf
+
+# バイナリファイル（変換しない）
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

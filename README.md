@@ -6,6 +6,8 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 運用詳細は [Runbook](docs/runbook.md) を参照してください。
 
+**全ドキュメントの索引は [docs/index.md](docs/index.md) を参照してください。**
+
 ---
 
 ## S-6 Stable 完成
@@ -207,21 +209,26 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 ## Documentation
 
+**全ドキュメントの索引: [docs/index.md](docs/index.md)**
+
 ### S-6 Stable（現行フェーズ・完成）
 
 - [S-6 Stable](docs/s6_stable.md) - S-6 フェーズ定義・運用ルール
 - [S-6 Operations](docs/s6_operations.md) - 安定運用ガイド（運用フロー・ログ・組織）
 - [S-6 Governance](docs/s6_governance.md) - ガバナンス・判断基準・拡張ルール
+- [S-6 Environment](docs/s6_environment.md) - 実行環境標準（PowerShell・改行）
 - [S-6 Completion](docs/s6_completion.md) - S-6 完成宣言
 - [S-6 Stable Checklist](docs/s6_stable_checklist.md) - 運用チェックリスト
 - [Runbook](docs/runbook.md) - 運用手順ガイド
+- [Glossary](docs/glossary.md) - 用語集
+- [Failure Report Template](docs/failure_report_template.md) - 障害報告テンプレート
 - [Release Notes](docs/release_notes.md) - 変更履歴
 
 ### S-5（履歴フェーズ）
 
 - [S-5 Closeout](docs/s5_closeout.md) - S-5 closeout 宣言
 - [S-5 Definition](docs/s5_definition.md) - S-5 フェーズ定義
-- [S-5 Closeout Checklist](docs/s5_closeout_checklist.md) - Closeout チェックリスト
+- [S-5 Closeout Checklist](docs/s5_closeout_checklist.md) - closeout チェックリスト
 
 ### 引き継ぎ時の推奨読み順
 
@@ -229,6 +236,24 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 2. **docs/s6_stable.md** - S-6 運用ルールの確認
 3. **docs/s6_operations.md** - 安定運用ガイド
 4. **docs/s6_governance.md** - ガバナンス・判断基準
-5. **docs/runbook.md** - 運用手順の確認
-6. **docs/s6_stable_checklist.md** - 運用チェックリスト
-7. **docs/release_notes.md** - 変更履歴の確認
+5. **docs/s6_environment.md** - 実行環境標準
+6. **docs/runbook.md** - 運用手順の確認
+7. **docs/glossary.md** - 用語の確認
+8. **docs/s6_stable_checklist.md** - 運用チェックリスト
+9. **docs/release_notes.md** - 変更履歴の確認
+
+---
+
+## 改行差分（LF/CRLF）の扱い
+
+### 方針
+
+- リポジトリ内は LF を標準とする
+- `.gitattributes` で改行方針を管理
+- 改行差分のみのコミットは避ける
+
+### 改行差分が出た場合
+
+1. 内容に変更がなければ無視してよい（警告のみ）
+2. `.gitattributes` の設定を確認
+3. 必要に応じて `git checkout -- <file>` で元に戻す

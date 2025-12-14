@@ -4,6 +4,147 @@
 
 初見の方は [README.md](../README.md) を先にお読みください。
 
+全ドキュメントの索引は [docs/index.md](index.md) を参照してください。
+
+---
+
+## 実行環境標準
+
+**Windows 実行は PowerShell を標準とします。**
+
+詳細は [S-6 Environment](s6_environment.md) を参照してください。
+
+### PowerShell 実行テンプレート
+
+```powershell
+# ディレクトリ移動付きコマンド実行
+powershell -Command "Set-Location 'C:\Users\takag\00_dev\tos'; <command>"
+
+# TOS 実行
+powershell -ExecutionPolicy Bypass -File 'C:\Users\takag\00_dev\tos\tools\cc_run.ps1' -Mode <mode>
+```
+
+### bash 利用時の禁止例
+
+以下のコマンドは **失敗する可能性が高い** ため使用禁止：
+
+```bash
+# 禁止（bash で Windows パス）
+cd C:\Users\takag\00_dev\tos
+cd /d "C:\Users\takag\00_dev\tos"
+```
+
+### 推奨コマンド例
+
+```powershell
+# 1. ディレクトリ存在確認
+powershell -Command "Test-Path 'C:\Users\takag\00_dev\tos'"
+
+# 2. TOS cleanrun
+powershell -ExecutionPolicy Bypass -File 'C:\Users\takag\00_dev\tos\tools\cc_run.ps1' -Mode cleanrun
+
+# 3. TOS test
+powershell -ExecutionPolicy Bypass -File 'C:\Users\takag\00_dev\tos\tools\cc_run.ps1' -Mode test
+
+# 4. TOS run
+powershell -ExecutionPolicy Bypass -File 'C:\Users\takag\00_dev\tos\tools\cc_run.ps1' -Mode run
+
+# 5. checkpoint 作成
+powershell -ExecutionPolicy Bypass -File 'C:\Users\takag\00_dev\tos\tools\checkpoint.ps1' -Name 'checkpoint_name'
+
+# 6. git status
+powershell -Command "Set-Location 'C:\Users\takag\00_dev\tos'; git status"
+
+# 7. git diff
+powershell -Command "Set-Location 'C:\Users\takag\00_dev\tos'; git diff"
+```
+
+### パスはクォート必須
+
+すべてのパスはクォート（シングルまたはダブル）で囲むこと。
+
+```powershell
+# 正しい
+Set-Location 'C:\Users\takag\00_dev\tos'
+
+# 間違い
+Set-Location C:\Users\takag\00_dev\tos
+```
+
+---
+
+## 改行差分（LF/CRLF）の扱い
+
+### 方針
+
+- リポジトリ内は LF を標準とする
+- `.gitattributes` で改行方針を管理
+- 改行差分のみのコミットは避ける
+
+### 改行差分が出た場合
+
+1. `.gitattributes` の設定を確認
+2. エディタが `.editorconfig` に従っているか確認
+3. 内容に変更がなければ `git checkout -- <file>` で元に戻す
+
+### git config 確認
+
+```powershell
+powershell -Command "git config core.autocrlf"
+```
+
+推奨値: `false` または `input`
+
+---
+
+## 実行前チェック
+
+実行前に以下を確認してください：
+
+- [ ] 作業ディレクトリが `C:\Users\takag\00_dev\tos` である
+- [ ] checkpoint を作成した（重要な変更前は必須）
+- [ ] API キー（OPENAI_API_KEY / ANTHROPIC_API_KEY）が設定されている
+- [ ] git status で未コミットの変更がないか確認した
+- [ ] 前回の実行が正常終了しているか確認した
+- [ ] job_input.json が正しく配置されている（job_loop 使用時）
+- [ ] config_v0_3.json の設定を確認した
+- [ ] 実行モード（cleanrun / test / run）を確認した
+- [ ] 他の人が実行中でないか確認した
+- [ ] ログ出力先（logs/）に十分な空き容量がある
+
+---
+
+## 実行後チェック
+
+実行後に以下を確認してください：
+
+- [ ] test モードが成功した（exit code 0）
+- [ ] phase が期待通りである（done / job_loop_complete）
+- [ ] エラーログがない（fatal_error / deny / stopped）
+- [ ] logs/steps/step_*.json が生成された
+- [ ] logs/last_run_summary.json が生成された
+- [ ] logs/last_run_summary.txt が生成された
+- [ ] workspace/artifacts/phase_summary.json が生成された
+- [ ] job_result.json が生成された（job_loop_complete の場合）
+- [ ] job_index が期待値と一致する
+- [ ] git status で予期しない変更がないか確認した
+
+---
+
+## 障害報告
+
+障害発生時は [障害報告テンプレート](failure_report_template.md) を使用してください。
+
+### 異常時のログ提出セット
+
+| ファイル | パス | 必須/任意 |
+|---------|------|----------|
+| last_run_summary.json | logs/last_run_summary.json | 必須 |
+| last_run_summary.txt | logs/last_run_summary.txt | 必須 |
+| step_*.json（直近） | logs/steps/step_*.json | 必須 |
+| phase_summary.json | workspace/artifacts/phase_summary.json | 必須 |
+| job_result.json | workspace/artifacts/job_result.json | 任意 |
+
 ---
 
 ## S-6 Stable 運用ステータス（最終版）

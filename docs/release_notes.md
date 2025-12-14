@@ -22,7 +22,17 @@ S-6 は TOS v0.3 の安定運用フェーズです。S-5 で確立した機能�
 - docs/s6_operations.md 新設（安定運用ガイド）
 - docs/s6_governance.md 新設（ガバナンス・判断基準）
 - docs/s6_completion.md 新設（完成宣言）
+- docs/s6_environment.md 新設（実行環境標準）
+- docs/index.md 新設（ドキュメント索引）
+- docs/glossary.md 新設（用語集）
+- docs/failure_report_template.md 新設（障害報告テンプレート）
+- .gitattributes 新設（改行コード方針）
+- .editorconfig 新設（編集環境標準）
+- runbook.md に実行前/実行後チェック追加
+- runbook.md に PowerShell 実行テンプレート追加
+- README.md に改行差分の扱いを追記
 - **S-6 stable 完成（2025-12-14）**
+- **S-6 stable 実行D 完了（2025-12-14）**
 
 ---
 
@@ -55,7 +65,7 @@ S-5 closeout は、experimental フェーズを正式に終了し、以下を確
 
 ### 次フェーズ
 
-S-6 は未定義です。必要に応じて別途検討します。
+S-6 stable フェーズが開始・完成しました。詳細は上記を参照してください。
 
 ---
 
