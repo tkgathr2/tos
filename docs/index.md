@@ -37,6 +37,15 @@
 | [Failure Report Template](failure_report_template.md) | 障害報告テンプレート | 運用担当者 |
 | [Glossary](glossary.md) | 用語集 | 全員 |
 
+### 運用移行・周知
+
+| ドキュメント | 内容 | 対象者 |
+|-------------|------|--------|
+| [S-6 1枚資料](s6_one_pager.md) | 運用者向けクイックリファレンス | 運用担当者 |
+| [周知メッセージ雛形](ops_announcement_slack.md) | Slack/Teams 等での周知テンプレート | 管理者 |
+| [30分研修](s6_training_30min.md) | 運用者向け最短研修コース | 運用担当者 |
+| [エスカレーション](ops_escalation.md) | 障害レベル・連絡先・判断基準 | 全員 |
+
 ### 変更履歴
 
 | ドキュメント | 内容 |

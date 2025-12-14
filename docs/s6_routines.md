@@ -447,6 +447,8 @@ powershell -ExecutionPolicy Bypass -File '.\tools\cc_run.ps1' -Mode rollback
 
 詳細な障害報告は **[障害報告テンプレート](failure_report_template.md)** を使用してください。
 
+エスカレーション手順・連絡先は **[エスカレーション](ops_escalation.md)** を参照してください。
+
 テンプレートには以下が含まれています:
 - 基本情報フォーマット
 - ログ取得コマンド

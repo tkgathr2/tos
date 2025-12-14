@@ -101,6 +101,8 @@ powershell -Command "git config core.autocrlf"
 
 日次/週次/月次/障害対応のルーチンは **[S-6 Routines](s6_routines.md)** を参照してください。
 
+運用者向けクイックリファレンス（1枚資料）は **[S-6 1枚資料](s6_one_pager.md)** を参照してください。
+
 | ルーチン | 頻度 | 主な内容 |
 |---------|------|---------|
 | 日次 | 毎日 | 事前チェック → test → run |

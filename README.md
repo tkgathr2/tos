@@ -236,6 +236,10 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - [Glossary](docs/glossary.md) - 用語集
 - [Failure Report Template](docs/failure_report_template.md) - 障害報告テンプレート
 - [Release Notes](docs/release_notes.md) - 変更履歴
+- [S-6 1枚資料](docs/s6_one_pager.md) - 運用者向けクイックリファレンス
+- [周知メッセージ雛形](docs/ops_announcement_slack.md) - Slack/Teams 周知テンプレート
+- [30分研修](docs/s6_training_30min.md) - 運用者向け最短研修コース
+- [エスカレーション](docs/ops_escalation.md) - 障害レベル・連絡先・判断基準
 
 ### S-5（履歴フェーズ）
 
