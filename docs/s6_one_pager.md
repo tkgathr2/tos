@@ -125,6 +125,7 @@ Get-Content workspace/phase_state.json
 
 ## 関連ドキュメント
 
+- [TOS v0.3 FINAL](tos_v0_3_final.md) - **最終完了宣言**
 - [README.md](../README.md) - 概要
 - [index.md](index.md) - 全ドキュメント索引
 - [runbook.md](runbook.md) - 運用手順ガイド

@@ -312,6 +312,7 @@ Get-ChildItem logs/steps/ | Sort-Object LastWriteTime -Descending | Select-Objec
 
 ## 関連ドキュメント
 
+- [TOS v0.3 FINAL](tos_v0_3_final.md) - **最終完了宣言**
 - [s6_one_pager.md](s6_one_pager.md) - 1枚資料
 - [s6_routines.md](s6_routines.md) - 定常運用ルーチン
 - [failure_report_template.md](failure_report_template.md) - 障害報告テンプレート

@@ -4,6 +4,8 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 **このリポジトリは完成品です。TOS v0.3 は 2025-12-14 に完結・封印されました。**
 
+**最終完了宣言: [TOS v0.3 FINAL](docs/tos_v0_3_final.md)** - 以後は運用のみ許可
+
 **本ドキュメントは初見者向けです。** TOS の概要と Quick Start を提供します。
 
 運用詳細は [Runbook](docs/runbook.md) を参照してください。
@@ -229,14 +231,19 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - 2025-12-14: S-6 stable 完成
 - 2025-12-14: S-7 結論「やらない」を確定
 - 2025-12-14: **TOS v0.3 完結・S-6 最終封印**
+- 2025-12-14: **TOS v0.3 FINAL - 最終完了宣言**
 
-詳細は [S-6 Stable](docs/s6_stable.md)、[S-6 最終封印宣言](docs/s6_sealed.md)、[S-7 検討結果](docs/s7_proposal.md) を参照してください。
+詳細は [TOS v0.3 FINAL](docs/tos_v0_3_final.md)、[S-6 Stable](docs/s6_stable.md)、[S-6 最終封印宣言](docs/s6_sealed.md) を参照してください。
 
 ---
 
 ## Documentation
 
 **全ドキュメントの索引: [docs/index.md](docs/index.md)**
+
+### TOS v0.3 FINAL
+
+- [TOS v0.3 最終完了宣言](docs/tos_v0_3_final.md) - **FINAL - 完成・封印・運用のみ**
 
 ### S-6 Stable（完成・封印）
 
@@ -266,14 +273,15 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 ### 引き継ぎ時の推奨読み順
 
 1. **README.md**（本ファイル）- 概要把握
-2. **docs/s6_stable.md** - S-6 運用ルールの確認
-3. **docs/s6_operations.md** - 安定運用ガイド
-4. **docs/s6_governance.md** - ガバナンス・判断基準
-5. **docs/s6_environment.md** - 実行環境標準
-6. **docs/runbook.md** - 運用手順の確認
-7. **docs/glossary.md** - 用語の確認
-8. **docs/s6_stable_checklist.md** - 運用チェックリスト
-9. **docs/release_notes.md** - 変更履歴の確認
+2. **docs/tos_v0_3_final.md** - 最終完了宣言の確認
+3. **docs/s6_stable.md** - S-6 運用ルールの確認
+4. **docs/s6_operations.md** - 安定運用ガイド
+5. **docs/s6_governance.md** - ガバナンス・判断基準
+6. **docs/s6_environment.md** - 実行環境標準
+7. **docs/runbook.md** - 運用手順の確認
+8. **docs/glossary.md** - 用語の確認
+9. **docs/s6_stable_checklist.md** - 運用チェックリスト
+10. **docs/release_notes.md** - 変更履歴の確認
 
 ---
 

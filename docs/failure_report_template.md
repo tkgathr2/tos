@@ -150,3 +150,11 @@ powershell -Command "Get-Content 'C:\Users\takag\00_dev\tos\workspace\artifacts\
 本テンプレートは正史コンテキスト v1.0 に準拠しています。
 
 障害報告は S-6 stable の運用ルール内で処理されます。
+
+---
+
+## 関連ドキュメント
+
+- [TOS v0.3 FINAL](tos_v0_3_final.md) - **最終完了宣言**
+- [ops_escalation.md](ops_escalation.md) - エスカレーション手順
+- [s6_routines.md](s6_routines.md) - 定常運用ルーチン
