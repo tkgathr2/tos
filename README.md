@@ -201,6 +201,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 ### S-6 Stable（現行フェーズ）
 
 - [S-6 Stable](docs/s6_stable.md) - S-6 フェーズ定義・運用ルール
+- [S-6 Operations](docs/s6_operations.md) - 安定運用ガイド（運用フロー・ログ・組織）
 - [S-6 Stable Checklist](docs/s6_stable_checklist.md) - 運用チェックリスト
 - [Runbook](docs/runbook.md) - 運用手順ガイド
 - [Release Notes](docs/release_notes.md) - 変更履歴
@@ -215,6 +216,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 1. **README.md**（本ファイル）- 概要把握
 2. **docs/s6_stable.md** - S-6 運用ルールの確認
-3. **docs/runbook.md** - 運用手順の確認
-4. **docs/s6_stable_checklist.md** - 運用チェックリスト
-5. **docs/release_notes.md** - 変更履歴の確認
+3. **docs/s6_operations.md** - 安定運用ガイド
+4. **docs/runbook.md** - 運用手順の確認
+5. **docs/s6_stable_checklist.md** - 運用チェックリスト
+6. **docs/release_notes.md** - 変更履歴の確認
