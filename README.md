@@ -24,6 +24,17 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 詳細は [S-6 Completion](docs/s6_completion.md) を参照してください。
 
+### S-7 は実施しない
+
+**S-7（拡張フェーズ）は 2025-12-14 に「不要」と確定しました。**
+
+- 自動リトライ機能は S-6 で既に実装済み
+- 残りの機能は外部ツール/手動運用で代替可能
+- S-6 stable の安定運用を優先
+
+再検討は 2025-06-14 以降、または明文化されたトリガー条件発生時のみ許可。
+詳細は [S-7 検討結果](docs/s7_proposal.md) を参照してください。
+
 ### S-5 は履歴フェーズ
 
 S-5 フェーズは 2025-12-14 に closeout 完了し、履歴フェーズとなりました。S-5 への変更は禁止されています。
@@ -202,8 +213,9 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - 2025-12-14: S-5 closeout 完了
 - 2025-12-14: S-6 stable 開始
 - 2025-12-14: S-6 stable 完成
+- 2025-12-14: **S-7 結論「やらない」を確定**
 
-詳細は [S-6 Stable](docs/s6_stable.md) を参照してください。
+詳細は [S-6 Stable](docs/s6_stable.md)、[S-7 検討結果](docs/s7_proposal.md) を参照してください。
 
 ---
 
