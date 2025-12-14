@@ -8,11 +8,19 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 ---
 
-## S-6 Stable フェーズ開始
+## S-6 Stable 完成
 
-**S-6 stable フェーズは 2025-12-14 に開始しました。**
+**S-6 stable フェーズは 2025-12-14 に完成しました。**
 
 **S-6 の目的**: S-5 で確立した機能を安定運用し、実運用環境での継続的な利用を可能にする。
+
+**S-6 完成により達成されたこと**:
+- 運用基盤・判断基準の確立
+- 拡張可否ルールの明文化
+- リスク・限界の明示
+- 将来引き継ぎ耐性の確保
+
+詳細は [S-6 Completion](docs/s6_completion.md) を参照してください。
 
 ### S-5 は履歴フェーズ
 
@@ -28,7 +36,7 @@ S-5 で達成した内容：
 
 | 項目 | S-5 (experimental) | S-6 (stable) |
 |------|-------------------|--------------|
-| ステータス | 履歴フェーズ（凍結） | 現行フェーズ（運用中） |
+| ステータス | 履歴フェーズ（凍結） | 現行フェーズ（完成・運用中） |
 | 変更 | 禁止 | 運用ルール内で許可 |
 | 目的 | 機能開発・検証 | 安定運用 |
 | 新機能 | なし | なし（安定維持優先） |
@@ -191,6 +199,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 - 2025-12-14: S-5 closeout 完了
 - 2025-12-14: S-6 stable 開始
+- 2025-12-14: S-6 stable 完成
 
 詳細は [S-6 Stable](docs/s6_stable.md) を参照してください。
 
@@ -198,10 +207,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 ## Documentation
 
-### S-6 Stable（現行フェーズ）
+### S-6 Stable（現行フェーズ・完成）
 
 - [S-6 Stable](docs/s6_stable.md) - S-6 フェーズ定義・運用ルール
 - [S-6 Operations](docs/s6_operations.md) - 安定運用ガイド（運用フロー・ログ・組織）
+- [S-6 Governance](docs/s6_governance.md) - ガバナンス・判断基準・拡張ルール
+- [S-6 Completion](docs/s6_completion.md) - S-6 完成宣言
 - [S-6 Stable Checklist](docs/s6_stable_checklist.md) - 運用チェックリスト
 - [Runbook](docs/runbook.md) - 運用手順ガイド
 - [Release Notes](docs/release_notes.md) - 変更履歴
@@ -217,6 +228,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 1. **README.md**（本ファイル）- 概要把握
 2. **docs/s6_stable.md** - S-6 運用ルールの確認
 3. **docs/s6_operations.md** - 安定運用ガイド
-4. **docs/runbook.md** - 運用手順の確認
-5. **docs/s6_stable_checklist.md** - 運用チェックリスト
-6. **docs/release_notes.md** - 変更履歴の確認
+4. **docs/s6_governance.md** - ガバナンス・判断基準
+5. **docs/runbook.md** - 運用手順の確認
+6. **docs/s6_stable_checklist.md** - 運用チェックリスト
+7. **docs/release_notes.md** - 変更履歴の確認
