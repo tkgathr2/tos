@@ -1,6 +1,10 @@
 # TOS v0.3 Runbook
 
-See also: [README.md](../README.md) for quick start guide.
+**本ドキュメントは運用者向けです。** 日常的に TOS を使用する人を対象としています。
+
+初見の方は [README.md](../README.md) を先にお読みください。
+
+---
 
 ## cc_run.ps1
 
@@ -285,37 +289,24 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 
 5. test runs automatically after rollback and should pass
 
-## S-4 completion criteria
+---
+
+## 参考情報: S-4 完了基準
+
+> 以下は S-4 フェーズで達成した基準です。S-5 以降も維持されています。
 
 - run/test/cleanrun/checkpoint/rollback modes work correctly
 - deny/fatal_error/stopped states are distinguishable
 - SummaryFile outputs both JSON and TXT formats
 
-## representative commands
-
-```powershell
-# run mode
-powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
-
-# test mode
-powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode test
-
-# cleanrun mode
-powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode cleanrun
-
-# checkpoint mode
-powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode checkpoint -CheckpointName S4_example
-
-# rollback mode
-powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
-```
-
-## S-4 completion checklist
+### S-4 completion checklist
 
 - [x] run/test/cleanrun modes pass
 - [x] deny/fatal_error/stopped states are distinguishable
 - [x] checkpoint/rollback modes pass
 - [x] SummaryFile outputs JSON and TXT
+
+---
 
 ## S-5 experimental phase
 

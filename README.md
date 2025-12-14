@@ -2,6 +2,12 @@
 
 Takagi Orchestration System - AI-powered task orchestrator
 
+**本ドキュメントは初見者向けです。** TOS の概要と Quick Start を提供します。
+
+運用詳細は [Runbook](docs/runbook.md) を参照してください。
+
+---
+
 ## S-5 の目的
 
 **S-5 = experimental 最終段階**
@@ -52,20 +58,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode rollback
 
 S-5 is an experimental phase. Results may be unstable.
 
-### job_loop
+主要機能:
+- **job_loop**: 複数ジョブの順次実行（max_jobs で上限指定）
+- **job_input/job_result**: 外部ペイロードの入出力
 
-job_loop allows running multiple jobs sequentially (max_jobs limit). Each run executes one job cycle.
-
-```json
-"s5_settings": {
-  "enabled": true,
-  "job_loop": {
-    "enabled": true,
-    "max_jobs": 3,
-    "job_name": "sample"
-  }
-}
-```
+詳細な設定と使用方法は [Runbook](docs/runbook.md) を参照してください。
 
 ## Documentation
 

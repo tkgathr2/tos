@@ -1,5 +1,36 @@
 # TOS v0.3 Release Notes
 
+## S-5 Closeout
+
+**S-5 は仕様凍結です。**
+
+### 目的
+
+S-5 closeout は、experimental フェーズを正式に終了し、以下を確定させることを目的としています：
+
+- job_loop 機能の安定動作
+- job_input/job_result によるペイロード連携
+- checkpoint/rollback による安全な実験環境
+- ドキュメントの整備
+
+### 凍結される内容
+
+- 機能仕様（新機能追加なし）
+- 設定フォーマット（config_v0_3.json スキーマ）
+- 入出力形式（job_input.json, job_result.json）
+
+### 許可される変更
+
+- ドキュメントの修正・追加
+- バグ修正（動作に影響を与えない範囲）
+- ログメッセージの修正
+
+### 次フェーズ
+
+S-6 は未定義です。必要に応じて別途検討します。
+
+---
+
 ## S-5 Changes
 
 - Started S-5 experimental phase
