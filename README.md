@@ -8,11 +8,13 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 ---
 
-## S-5 の目的
+## S-5 Closeout 完了
 
-**S-5 = experimental 最終段階**
+**S-5 フェーズは 2025-12-14 に closeout 完了しました。**
 
-S-5 フェーズは TOS の experimental フェーズの最終段階です。以下を達成しています：
+**S-5 は履歴フェーズです。以後の変更は禁止されています。**
+
+S-5 フェーズは TOS の experimental フェーズの最終段階として、以下を達成しました：
 
 - job_loop 機能の実装完了
 - job_input/job_result によるペイロード連携
@@ -21,7 +23,9 @@ S-5 フェーズは TOS の experimental フェーズの最終段階です。以
 
 **重要: S-6 は未定義です**
 
-S-5 の次フェーズ（S-6）は現時点で定義されていません。S-5 をもって experimental フェーズは凍結されます。新機能追加や仕様変更は行いません。
+S-5 の次フェーズ（S-6）は現時点で定義されていません。S-5 をもって experimental フェーズは凍結されました。新機能追加や仕様変更は行いません。
+
+**注意**: 以下の Example セクションは S-5 動作確認用の履歴記録です。新規運用ではなく、rollback による復旧確認目的でのみ使用してください。
 
 ---
 
@@ -183,3 +187,13 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - [Runbook](docs/runbook.md) - Detailed usage guide
 - [Release Notes](docs/release_notes.md) - Version history
 - [S-5 Closeout](docs/s5_closeout.md) - S-5 closeout declaration
+- [S-5 Definition](docs/s5_definition.md) - S-5 phase definition
+- [S-5 Closeout Checklist](docs/s5_closeout_checklist.md) - Closeout verification checklist
+
+### 引き継ぎ時の推奨読み順
+
+1. **README.md**（本ファイル）- 概要把握
+2. **docs/s5_closeout.md** - closeout 宣言・禁止事項の確認
+3. **docs/runbook.md** - 運用手順の確認（rollback 専用）
+4. **docs/s5_definition.md** - S-5 の技術的定義
+5. **docs/release_notes.md** - 変更履歴の確認
