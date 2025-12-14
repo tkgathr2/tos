@@ -32,6 +32,7 @@
 | ドキュメント | 内容 | 対象者 |
 |-------------|------|--------|
 | [Runbook](runbook.md) | 運用手順ガイド | 運用担当者 |
+| [S-6 Routines](s6_routines.md) | 日次/週次/月次/障害対応ルーチン | 運用担当者 |
 | [S-6 Stable Checklist](s6_stable_checklist.md) | 運用チェックリスト | 運用担当者 |
 | [Failure Report Template](failure_report_template.md) | 障害報告テンプレート | 運用担当者 |
 | [Glossary](glossary.md) | 用語集 | 全員 |

@@ -230,6 +230,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - [S-6 Governance](docs/s6_governance.md) - ガバナンス・判断基準・拡張ルール
 - [S-6 Environment](docs/s6_environment.md) - 実行環境標準（PowerShell・改行）
 - [S-6 Completion](docs/s6_completion.md) - S-6 完成宣言
+- [S-6 Routines](docs/s6_routines.md) - 日次/週次/月次/障害対応ルーチン
 - [S-6 Stable Checklist](docs/s6_stable_checklist.md) - 運用チェックリスト
 - [Runbook](docs/runbook.md) - 運用手順ガイド
 - [Glossary](docs/glossary.md) - 用語集
