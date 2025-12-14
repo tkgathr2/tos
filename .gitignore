@@ -22,6 +22,7 @@ logs/last_checkpoint.txt
 !workspace/generated/.gitkeep
 !workspace/results/.gitkeep
 !workspace/artifacts/.gitkeep
+!workspace/artifacts/job_input.example.json
 !logs/steps/.gitkeep
 
 # Local config (Python path is machine-specific)

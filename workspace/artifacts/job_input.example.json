@@ -1,0 +1,7 @@
+{
+  "job_name": "example_job",
+  "target": "example_target",
+  "params": {
+    "key1": "value1"
+  }
+}
