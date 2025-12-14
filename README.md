@@ -2,6 +2,8 @@
 
 Takagi Orchestration System - AI-powered task orchestrator
 
+**このリポジトリは完成品です。TOS v0.3 は 2025-12-14 に完結・封印されました。**
+
 **本ドキュメントは初見者向けです。** TOS の概要と Quick Start を提供します。
 
 運用詳細は [Runbook](docs/runbook.md) を参照してください。
@@ -10,9 +12,19 @@ Takagi Orchestration System - AI-powered task orchestrator
 
 ---
 
-## S-6 Stable 完成
+## TOS v0.3 完結・封印
 
-**S-6 stable フェーズは 2025-12-14 に完成しました。**
+**TOS v0.3 S-6 stable は 2025-12-14 に完結・封印されました。**
+
+**以後は運用のみが許可されます。機能追加・仕様変更は禁止です。**
+
+封印宣言の詳細は [S-6 最終封印宣言](docs/s6_sealed.md) を参照してください。
+
+---
+
+## S-6 Stable 完成・封印
+
+**S-6 stable フェーズは 2025-12-14 に完成・封印されました。**
 
 **S-6 の目的**: S-5 で確立した機能を安定運用し、実運用環境での継続的な利用を可能にする。
 
@@ -45,16 +57,18 @@ S-5 で達成した内容：
 - checkpoint/rollback による安全な実験環境
 - 動作の安定性確認済み
 
-### S-6 と S-5 の違い
+### フェーズ一覧（最終版）
 
-| 項目 | S-5 (experimental) | S-6 (stable) |
-|------|-------------------|--------------|
-| ステータス | 履歴フェーズ（凍結） | 現行フェーズ（完成・運用中） |
-| 変更 | 禁止 | 運用ルール内で許可 |
-| 目的 | 機能開発・検証 | 安定運用 |
-| 新機能 | なし | なし（安定維持優先） |
+| フェーズ | ステータス | 変更 | 目的 |
+|---------|----------|------|------|
+| S-4 | 履歴 | 禁止 | 基本機能実装 |
+| S-5 | 履歴（凍結） | 禁止 | experimental |
+| S-6 | **完成・封印** | **禁止** | 安定運用 |
+| S-7 | 不要（確定） | N/A | 実施しない |
 
-詳細は [S-6 Stable](docs/s6_stable.md) を参照してください。
+**S-6 は封印状態です。今後の変更は原則禁止されています。**
+
+詳細は [S-6 Stable](docs/s6_stable.md)、[S-6 最終封印宣言](docs/s6_sealed.md) を参照してください。
 
 ---
 
@@ -213,9 +227,10 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 - 2025-12-14: S-5 closeout 完了
 - 2025-12-14: S-6 stable 開始
 - 2025-12-14: S-6 stable 完成
-- 2025-12-14: **S-7 結論「やらない」を確定**
+- 2025-12-14: S-7 結論「やらない」を確定
+- 2025-12-14: **TOS v0.3 完結・S-6 最終封印**
 
-詳細は [S-6 Stable](docs/s6_stable.md)、[S-7 検討結果](docs/s7_proposal.md) を参照してください。
+詳細は [S-6 Stable](docs/s6_stable.md)、[S-6 最終封印宣言](docs/s6_sealed.md)、[S-7 検討結果](docs/s7_proposal.md) を参照してください。
 
 ---
 
@@ -223,8 +238,9 @@ powershell -ExecutionPolicy Bypass -File .\tools\cc_run.ps1 -Mode run
 
 **全ドキュメントの索引: [docs/index.md](docs/index.md)**
 
-### S-6 Stable（現行フェーズ・完成）
+### S-6 Stable（完成・封印）
 
+- [S-6 最終封印宣言](docs/s6_sealed.md) - TOS v0.3 完結・封印宣言
 - [S-6 Stable](docs/s6_stable.md) - S-6 フェーズ定義・運用ルール
 - [S-6 Operations](docs/s6_operations.md) - 安定運用ガイド（運用フロー・ログ・組織）
 - [S-6 Governance](docs/s6_governance.md) - ガバナンス・判断基準・拡張ルール
